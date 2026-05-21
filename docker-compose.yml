@@ -1,0 +1,59 @@
+services:
+  gw:
+    build: ./gateway
+    container_name: gw
+    hostname: gw
+    privileged: true
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    environment:
+      LAN_IP: "${LAN_IP:-10.88.0.1}"
+      LAN_CIDR: "${LAN_CIDR:-10.88.0.0/24}"
+      DHCP_POOL_START: "${DHCP_POOL_START:-10.88.0.100}"
+      DHCP_POOL_END: "${DHCP_POOL_END:-10.88.0.200}"
+      DHCP_DNS: "${DHCP_DNS:-1.1.1.1, 9.9.9.9, 8.8.8.8}"
+      DHCP_DOMAIN: "${DHCP_DOMAIN:-lab.local}"
+      KEA_CA_PORT: "${KEA_CA_PORT:-8000}"
+      FW_API_PORT: "${FW_API_PORT:-8080}"
+    ports:
+      - "${FW_API_HOST_PORT:-18080}:${FW_API_PORT:-8080}"   # API do firewall
+      - "${KEA_CA_HOST_PORT:-18000}:${KEA_CA_PORT:-8000}"   # Kea Control Agent
+    networks:
+      wan: {}
+      lan:
+        ipv4_address: "${LAN_IP:-10.88.0.1}"
+
+  client1:
+    build: ./client
+    container_name: client1
+    hostname: client1
+    privileged: true
+    depends_on:
+      - gw
+    networks:
+      lan: {}
+
+  client2:
+    build: ./client
+    container_name: client2
+    hostname: client2
+    privileged: true
+    depends_on:
+      - gw
+    networks:
+      lan: {}
+
+# WAN comum: Docker atribui IP dinamicamente via IPAM da própria bridge e permite saída para a internet pelo host.
+networks:
+  wan:
+    driver: bridge
+
+# LAN isolada: sem saída direta pelo Docker. O tráfego deve passar pelo gw. O ip_range fica separado do pool DHCP para evitar colisão entre IPAM Docker temporário e leases reais entregues pelo Kea.
+  lan:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: "${LAN_CIDR:-10.88.0.0/24}"
+          gateway: "${LAN_DOCKER_GATEWAY:-10.88.0.254}"
+          ip_range: "${LAN_DOCKER_IP_RANGE:-10.88.0.240/28}"
