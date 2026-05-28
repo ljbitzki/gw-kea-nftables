@@ -22,6 +22,12 @@ gw-kea-nftables/
 ├── gateway/
 │   ├── Dockerfile
 │   ├── gwapi.py
+│   ├── gwapi_app/
+│   │   ├── firewall.py
+│   │   ├── dhcp.py
+│   │   ├── web.py
+│   │   ├── templates/
+│   │   └── static/
 │   └── start-gateway.sh
 └── client/               # Apenas para exemplificar o funcionamento
     ├── Dockerfile        # Apenas para exemplificar o funcionamento
@@ -118,12 +124,10 @@ python3 reconfigure.py
 ## Para subir esse "protótipo"
 
 ```bash
-docker compose up --build
+docker compose up -d --build 
 ```
 
 --- 
-
-# Daqui para baixo é informação para quem for abraçar o desenvolvimento
 
 ## Portas publicadas no host
 
@@ -133,6 +137,12 @@ docker compose up --build
 | Kea Control Agent | `http://localhost:18000` | Controle direto do Kea DHCPv4 |
 
 ## API do firewall
+
+Interface web simples para CRUD das regras:
+
+```text
+http://localhost:18080/
+```
 
 Ver se a API está rodando:
 
@@ -190,7 +200,7 @@ curl -s -X PUT http://localhost:18080/firewall/default \
   -d '{"policy":"drop"}' | jq
 ```
 
-## Exemplos um pouco mais complecos do firewall
+## Exemplos um pouco mais complexos do firewall
 
 - `src`: endereço ou rede de origem, por exemplo `10.88.0.200/32`;
 - `position`: posição de inserção da regra, por exemplo `first` ou `last`.

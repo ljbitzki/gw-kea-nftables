@@ -8,6 +8,7 @@ RUN  apt update && \
 
 COPY start-gateway.sh /usr/local/bin/start-gateway.sh
 COPY gwapi.py /opt/gwapi/app.py
+COPY gwapi_app /opt/gwapi/gwapi_app
 
 RUN chmod +x /usr/local/bin/start-gateway.sh
 

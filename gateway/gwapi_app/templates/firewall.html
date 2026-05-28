@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Firewall GW</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='firewall.css') }}">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>Firewall GW</h1>
+      </div>
+      <div class="header-meta">
+        <span class="pill" id="lanIf">LAN</span>
+        <span class="pill" id="wanIf">WAN</span>
+        <span class="pill" id="lanCidr">CIDR</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="toolbar">
+      <div class="policy-box">
+        <div>
+          <strong>Politica padrao LAN -> WAN</strong>
+          <div class="muted" id="ruleCount">0 regras</div>
+        </div>
+        <div class="policy-control">
+          <select id="defaultPolicy" aria-label="Politica padrao">
+            <option value="drop">drop</option>
+            <option value="allow">allow</option>
+          </select>
+          <button class="primary" id="savePolicy" type="button">Aplicar politica</button>
+          <button class="ghost" id="applyRules" type="button">Reaplicar</button>
+        </div>
+      </div>
+      <div class="status-line" id="statusLine">Carregando...</div>
+    </section>
+
+    <section class="layout">
+      <aside class="form-panel">
+        <div class="panel-head">
+          <h2 id="formTitle">Nova regra</h2>
+          <button class="ghost" id="newRule" type="button">Nova</button>
+        </div>
+        <form id="ruleForm">
+          <div class="field full">
+            <label for="ruleId">ID</label>
+            <input id="ruleId" name="id" autocomplete="off" placeholder="allow-ssh">
+          </div>
+          <div class="field full">
+            <label for="description">Descricao</label>
+            <input id="description" name="description" autocomplete="off" placeholder="Permite SSH de saida">
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="action">Acao</label>
+              <select id="action" name="action" required>
+                <option value="allow">allow</option>
+                <option value="drop">drop</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="proto">Protocolo</label>
+              <select id="proto" name="proto" required>
+                <option value="tcp">tcp</option>
+                <option value="udp">udp</option>
+                <option value="icmp">icmp</option>
+                <option value="all">all</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="src">Origem</label>
+              <input id="src" name="src" autocomplete="off" placeholder="10.88.0.100/32">
+            </div>
+            <div class="field">
+              <label for="dst">Destino</label>
+              <input id="dst" name="dst" autocomplete="off" placeholder="0.0.0.0/0">
+            </div>
+            <div class="field">
+              <label for="dport">Porta destino</label>
+              <input id="dport" name="dport" type="number" min="1" max="65535" placeholder="443">
+            </div>
+            <div class="field" id="positionField">
+              <label for="position">Posicao</label>
+              <select id="position" name="position">
+                <option value="last">fim</option>
+                <option value="first">topo</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="primary" type="submit" id="saveRule">Salvar regra</button>
+            <button class="ghost" type="button" id="cancelEdit">Cancelar</button>
+          </div>
+        </form>
+      </aside>
+
+      <section class="rules-panel">
+        <div class="panel-head">
+          <h2>Regras</h2>
+          <button class="ghost" id="refreshRules" type="button">Atualizar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Acao</th>
+                <th>Proto</th>
+                <th>Origem</th>
+                <th>Destino</th>
+                <th>Porta</th>
+                <th>Descricao</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody id="rulesBody">
+              <tr><td colspan="8" class="muted">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='firewall.js') }}"></script>
+</body>
+</html>
