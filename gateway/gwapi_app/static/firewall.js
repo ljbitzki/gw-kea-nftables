@@ -1,5 +1,6 @@
 const state = {
   rules: [],
+  groups: {},
   editingId: null,
 };
 
@@ -54,12 +55,16 @@ function buildPayload(includePosition) {
   const description = normalizeBlank(el("description").value);
   const src = normalizeBlank(el("src").value);
   const dst = normalizeBlank(el("dst").value);
+  const srcGroup = normalizeBlank(el("srcGroup").value);
+  const dstGroup = normalizeBlank(el("dstGroup").value);
   const dport = normalizeBlank(el("dport").value);
 
   if (id) payload.id = id;
   if (description) payload.description = description;
-  if (src) payload.src = src;
-  if (dst) payload.dst = dst;
+  if (srcGroup) payload.src_group = srcGroup;
+  else if (src) payload.src = src;
+  if (dstGroup) payload.dst_group = dstGroup;
+  else if (dst) payload.dst = dst;
   if (dport) payload.dport = Number(dport);
   if (includePosition) payload.position = el("position").value;
 
@@ -75,6 +80,15 @@ function updateDportState() {
   }
 }
 
+function updateAddressState() {
+  const srcGrouped = Boolean(el("srcGroup").value);
+  const dstGrouped = Boolean(el("dstGroup").value);
+  el("src").disabled = srcGrouped;
+  el("dst").disabled = dstGrouped;
+  if (srcGrouped) el("src").value = "";
+  if (dstGrouped) el("dst").value = "";
+}
+
 function resetForm() {
   state.editingId = null;
   el("ruleForm").reset();
@@ -85,6 +99,7 @@ function resetForm() {
   el("saveRule").textContent = "Salvar regra";
   el("positionField").style.display = "";
   updateDportState();
+  updateAddressState();
 }
 
 function fillForm(rule) {
@@ -94,13 +109,40 @@ function fillForm(rule) {
   el("action").value = rule.action || "allow";
   el("proto").value = rule.proto || "all";
   el("src").value = rule.src || "";
+  el("srcGroup").value = rule.src_group || "";
   el("dst").value = rule.dst || "";
+  el("dstGroup").value = rule.dst_group || "";
   el("dport").value = rule.dport || "";
   el("formTitle").textContent = "Editar regra";
   el("saveRule").textContent = "Atualizar regra";
   el("positionField").style.display = "none";
   updateDportState();
+  updateAddressState();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderGroupOptions() {
+  const options = ['<option value="">nenhum</option>']
+    .concat(Object.entries(state.groups).map(([groupId, group]) => (
+      `<option value="${escapeHtml(groupId)}">${escapeHtml(group.description || groupId)}</option>`
+    )))
+    .join("");
+
+  const currentSrc = el("srcGroup").value;
+  const currentDst = el("dstGroup").value;
+  el("srcGroup").innerHTML = options;
+  el("dstGroup").innerHTML = options;
+  el("srcGroup").value = currentSrc;
+  el("dstGroup").value = currentDst;
+}
+
+function formatAddress(rule, field) {
+  const groupField = `${field}_group`;
+  if (rule[groupField]) {
+    const group = state.groups[rule[groupField]];
+    return `@${group ? group.description : rule[groupField]}`;
+  }
+  return rule[field] || "qualquer";
 }
 
 function renderRules() {
@@ -117,17 +159,52 @@ function renderRules() {
       <td><strong>${escapeHtml(rule.id)}</strong></td>
       <td><span class="tag ${escapeHtml(rule.action)}">${escapeHtml(rule.action)}</span></td>
       <td><span class="tag proto">${escapeHtml(rule.proto || "all")}</span></td>
-      <td>${escapeHtml(rule.src || "qualquer")}</td>
-      <td>${escapeHtml(rule.dst || "qualquer")}</td>
+      <td>${escapeHtml(formatAddress(rule, "src"))}</td>
+      <td>${escapeHtml(formatAddress(rule, "dst"))}</td>
       <td>${escapeHtml(rule.dport || "-")}</td>
       <td>${escapeHtml(rule.description || "-")}</td>
       <td>
         <div class="table-actions">
-          <button class="ghost" type="button" data-action="edit" data-id="${escapeHtml(rule.id)}">Editar</button>
-          <button class="danger" type="button" data-action="delete" data-id="${escapeHtml(rule.id)}">Remover</button>
+          ${rule.system ? '<span class="muted">sistema</span>' : `
+            <button class="ghost" type="button" data-action="edit" data-id="${escapeHtml(rule.id)}">Editar</button>
+            <button class="danger" type="button" data-action="delete" data-id="${escapeHtml(rule.id)}">Remover</button>
+          `}
         </div>
       </td>
     </tr>
+  `).join("");
+}
+
+function renderGroups() {
+  const body = el("groupsBody");
+  const entries = Object.entries(state.groups);
+  if (!entries.length) {
+    body.innerHTML = '<div class="muted">Nenhum grupo cadastrado.</div>';
+    return;
+  }
+
+  body.innerHTML = entries.map(([groupId, group]) => `
+    <article class="group-box">
+      <div class="group-head">
+        <div class="group-title">
+          <strong>${escapeHtml(group.description || groupId)}</strong>
+          <span class="muted">${escapeHtml(groupId)} · ${(group.members || []).length} membro${(group.members || []).length === 1 ? "" : "s"}</span>
+        </div>
+        ${group.system ? '<span class="tag proto">sistema</span>' : `<button class="danger" type="button" data-action="delete-group" data-group="${escapeHtml(groupId)}">Remover</button>`}
+      </div>
+      <form class="member-form" data-group="${escapeHtml(groupId)}">
+        <input name="member" autocomplete="off" placeholder="10.88.0.100/32">
+        <button class="ghost" type="submit">Adicionar</button>
+      </form>
+      <div class="member-list">
+        ${(group.members || []).length ? group.members.map((member) => `
+          <div class="member-row">
+            <code>${escapeHtml(member)}</code>
+            <button class="danger" type="button" data-action="delete-member" data-group="${escapeHtml(groupId)}" data-member="${escapeHtml(member)}">Remover</button>
+          </div>
+        `).join("") : '<span class="muted">Sem membros.</span>'}
+      </div>
+    </article>
   `).join("");
 }
 
@@ -141,12 +218,17 @@ async function loadFirewall() {
   el("wanIf").textContent = `WAN: ${health.wan_if}`;
   el("lanCidr").textContent = `CIDR: ${health.lan_cidr}`;
   el("defaultPolicy").value = firewall.default_policy || "drop";
+  state.groups = firewall.groups || {};
   state.rules = firewall.rules || [];
+  renderGroupOptions();
+  renderGroups();
   renderRules();
   setStatus("Estado carregado", "ok");
 }
 
 el("proto").addEventListener("change", updateDportState);
+el("srcGroup").addEventListener("change", updateAddressState);
+el("dstGroup").addEventListener("change", updateAddressState);
 el("newRule").addEventListener("click", resetForm);
 el("cancelEdit").addEventListener("click", resetForm);
 el("refreshRules").addEventListener("click", () => {
@@ -174,6 +256,81 @@ el("savePolicy").addEventListener("click", async () => {
     });
     await loadFirewall();
     setStatus("Politica atualizada", "ok");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+});
+
+el("groupForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const payload = {
+      id: normalizeBlank(el("groupId").value),
+      description: normalizeBlank(el("groupDescription").value),
+      members: [],
+    };
+    setStatus("Criando grupo...");
+    await api("/firewall/groups", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    el("groupForm").reset();
+    await loadFirewall();
+    setStatus("Grupo criado", "ok");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+});
+
+el("groupsBody").addEventListener("submit", async (event) => {
+  const form = event.target.closest(".member-form");
+  if (!form) return;
+  event.preventDefault();
+
+  const input = form.querySelector("input[name='member']");
+  const member = normalizeBlank(input.value);
+  if (!member) return;
+
+  try {
+    setStatus("Adicionando membro...");
+    await api(`/firewall/groups/${encodeURIComponent(form.dataset.group)}/members`, {
+      method: "POST",
+      body: JSON.stringify({ member }),
+    });
+    input.value = "";
+    await loadFirewall();
+    setStatus("Membro adicionado", "ok");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+});
+
+el("groupsBody").addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+
+  const action = button.dataset.action;
+  const groupId = button.dataset.group;
+
+  try {
+    if (action === "delete-member") {
+      setStatus("Removendo membro...");
+      await api(`/firewall/groups/${encodeURIComponent(groupId)}/members`, {
+        method: "DELETE",
+        body: JSON.stringify({ member: button.dataset.member }),
+      });
+      await loadFirewall();
+      setStatus("Membro removido", "ok");
+    }
+
+    if (action === "delete-group") {
+      const confirmed = window.confirm(`Remover o grupo ${groupId}?`);
+      if (!confirmed) return;
+      setStatus("Removendo grupo...");
+      await api(`/firewall/groups/${encodeURIComponent(groupId)}`, { method: "DELETE" });
+      await loadFirewall();
+      setStatus("Grupo removido", "ok");
+    }
   } catch (error) {
     setStatus(error.message, "error");
   }

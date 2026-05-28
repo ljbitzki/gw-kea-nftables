@@ -89,7 +89,8 @@ main {
 
 .policy-box,
 .form-panel,
-.rules-panel {
+.rules-panel,
+.groups-panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -120,6 +121,10 @@ main {
   align-items: start;
 }
 
+.groups-panel {
+  margin-bottom: 18px;
+}
+
 .panel-head {
   display: flex;
   align-items: center;
@@ -137,6 +142,10 @@ h2 {
 
 form {
   padding: 16px;
+}
+
+.compact-form {
+  padding-bottom: 4px;
 }
 
 .logout-form {
@@ -159,6 +168,10 @@ form {
 
 .field.full {
   grid-column: 1 / -1;
+}
+
+.submit-field {
+  justify-content: end;
 }
 
 label {
@@ -268,6 +281,69 @@ button:hover {
 
 .rules-panel {
   overflow: hidden;
+}
+
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.group-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+
+.group-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.group-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group-title strong {
+  overflow-wrap: anywhere;
+}
+
+.member-form {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.member-row code {
+  overflow-wrap: anywhere;
 }
 
 .table-wrap {
@@ -380,6 +456,10 @@ tr:last-child td {
   }
 
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .member-form {
     grid-template-columns: 1fr;
   }
 }

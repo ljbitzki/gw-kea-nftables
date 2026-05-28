@@ -42,6 +42,30 @@
       <div class="status-line" id="statusLine">Carregando...</div>
     </section>
 
+    <section class="groups-panel">
+      <div class="panel-head">
+        <h2>Grupos</h2>
+      </div>
+      <form id="groupForm" class="compact-form">
+        <div class="field-grid group-create-grid">
+          <div class="field">
+            <label for="groupId">ID do grupo</label>
+            <input id="groupId" name="id" autocomplete="off" placeholder="clientes_iot">
+          </div>
+          <div class="field">
+            <label for="groupDescription">Descricao</label>
+            <input id="groupDescription" name="description" autocomplete="off" placeholder="Clientes IoT">
+          </div>
+          <div class="field submit-field">
+            <button class="primary" type="submit">Criar grupo</button>
+          </div>
+        </div>
+      </form>
+      <div class="groups-grid" id="groupsBody">
+        <div class="muted">Carregando grupos...</div>
+      </div>
+    </section>
+
     <section class="layout">
       <aside class="form-panel">
         <div class="panel-head">
@@ -79,8 +103,20 @@
               <input id="src" name="src" autocomplete="off" placeholder="10.88.0.100/32">
             </div>
             <div class="field">
+              <label for="srcGroup">Origem grupo</label>
+              <select id="srcGroup" name="src_group">
+                <option value="">nenhum</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="dst">Destino</label>
               <input id="dst" name="dst" autocomplete="off" placeholder="0.0.0.0/0">
+            </div>
+            <div class="field">
+              <label for="dstGroup">Destino grupo</label>
+              <select id="dstGroup" name="dst_group">
+                <option value="">nenhum</option>
+              </select>
             </div>
             <div class="field">
               <label for="dport">Porta destino</label>

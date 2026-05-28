@@ -152,16 +152,25 @@ http://localhost:18080/
 O login usa `ADMIN_USER` e `ADMIN_PASSWORD` definidos no `.env`. A mesma sessão também protege os endpoints JSON do firewall.
 Para chamadas via `curl`, use HTTP Basic Auth com as mesmas credenciais, por exemplo `-u "$ADMIN_USER:$ADMIN_PASSWORD"`.
 
+Para os exemplos abaixo:
+
+```bash
+set -a
+source .env
+set +a
+FW_AUTH="${ADMIN_USER}:${ADMIN_PASSWORD}"
+```
+
 Ver se a API está rodando:
 
 ```bash
-curl -s http://localhost:18080/health | jq
+curl -s -u "$FW_AUTH" http://localhost:18080/health | jq
 ```
 
 Ver política de firewall atual:
 
 ```bash
-curl -s http://localhost:18080/firewall | jq
+curl -s -u "$FW_AUTH" http://localhost:18080/firewall | jq
 ```
 
 Ver ruleset efetivo no `nftables`:
@@ -171,11 +180,31 @@ docker exec -it gw nft list ruleset
 ```
 
 Por padrão, a política LAN -> WAN é `drop`, com regras liberando DNS, HTTP, HTTPS e ICMP.
+Também existem dois grupos padrão, implementados como `sets` do `nftables`:
+
+- `manual_blocked`: hosts/redes manualmente bloqueados, avaliado antes das liberações;
+- `manual_allowed`: hosts/redes manualmente liberados, avaliado depois dos bloqueados.
+
+Adicionar o cliente `10.88.0.100` ao grupo de bloqueados:
+
+```bash
+curl -s -u "$FW_AUTH" -X POST http://localhost:18080/firewall/groups/manual_blocked/members \
+  -H 'Content-Type: application/json' \
+  -d '{"member":"10.88.0.100/32"}' | jq
+```
+
+Remover o mesmo cliente do grupo:
+
+```bash
+curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/groups/manual_blocked/members \
+  -H 'Content-Type: application/json' \
+  -d '{"member":"10.88.0.100/32"}' | jq
+```
 
 ### Adicionar uma regra para permitir SSH de saída
 
 ```bash
-curl -s -X POST http://localhost:18080/firewall/rules \
+curl -s -u "$FW_AUTH" -X POST http://localhost:18080/firewall/rules \
   -H 'Content-Type: application/json' \
   -d '{
         "id": "allow-ssh",
@@ -189,13 +218,13 @@ curl -s -X POST http://localhost:18080/firewall/rules \
 ### Remover a regra de SSH (por nome)
 
 ```bash
-curl -s -X DELETE http://localhost:18080/firewall/rules/allow-ssh | jq
+curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/rules/allow-ssh | jq
 ```
 
 ### Mudar política default para permitir tudo (apenas demonstração, não fazer isso obviamente)
 
 ```bash
-curl -s -X PUT http://localhost:18080/firewall/default \
+curl -s -u "$FW_AUTH" -X PUT http://localhost:18080/firewall/default \
   -H 'Content-Type: application/json' \
   -d '{"policy":"allow"}' | jq
 ```
@@ -203,7 +232,7 @@ curl -s -X PUT http://localhost:18080/firewall/default \
 ### Mudar política default para bloquear tudo que não esteja explicitamente liberado
 
 ```bash
-curl -s -X PUT http://localhost:18080/firewall/default \
+curl -s -u "$FW_AUTH" -X PUT http://localhost:18080/firewall/default \
   -H 'Content-Type: application/json' \
   -d '{"policy":"drop"}' | jq
 ```
@@ -223,7 +252,7 @@ Além disso, como já existem regras liberando DNS, HTTP, HTTPS e ICMP, a regra 
 ### Inserir regra que bloqueia por completo o tráfego do cliente `10.88.0.200`
 
 ```bash
-curl -s -X POST http://localhost:18080/firewall/rules \
+curl -s -u "$FW_AUTH" -X POST http://localhost:18080/firewall/rules \
   -H 'Content-Type: application/json' \
   -d '{
         "id": "drop-client-10-88-0-200",
@@ -246,13 +275,13 @@ A regra deve aparecer antes das regras permissivas, como `allow-dns`, `allow-htt
 ### Remover a regra anterior, se ela existir
 
 ```bash
-curl -s -X DELETE http://localhost:18080/firewall/rules/drop-client-10-88-0-200 | jq
+curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/rules/drop-client-10-88-0-200 | jq
 ```
 
 Versão que trata `404` como “não havia regra para remover”:
 
 ```bash
-curl -s -X DELETE http://localhost:18080/firewall/rules/drop-client-10-88-0-200 \
+curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/rules/drop-client-10-88-0-200 \
   | jq 'if .error == "regra não encontrada" then {removed:false, reason:.error} else {removed:true} end'
 ```
 ---
