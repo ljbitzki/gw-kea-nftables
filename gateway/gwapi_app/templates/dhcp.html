@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DHCP GW</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='firewall.css') }}">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>DHCP GW</h1>
+      </div>
+      <div class="header-meta">
+        <nav class="top-nav" aria-label="Navegação principal">
+          <a href="{{ url_for('web.firewall_ui') }}">Firewall</a>
+          <a class="active" href="{{ url_for('web.dhcp_ui') }}">DHCP</a>
+        </nav>
+        <span class="pill" id="lanIf">LAN</span>
+        <span class="pill" id="wanIf">WAN</span>
+        <span class="pill" id="lanCidr">CIDR</span>
+        <form class="logout-form" method="post" action="{{ url_for('auth.logout') }}">
+          <button class="logout-button" type="submit">Sair</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="toolbar">
+      <div class="policy-box">
+        <div>
+          <strong>Resumo DHCPv4</strong>
+          <div class="muted" id="dhcpSummary">Carregando...</div>
+        </div>
+        <div class="policy-control">
+          <button class="ghost" id="refreshDhcp" type="button">Atualizar</button>
+          <button class="primary" id="applyReservations" type="button">Aplicar reservations</button>
+        </div>
+      </div>
+      <div class="status-line" id="statusLine">Carregando...</div>
+    </section>
+
+    <section class="groups-panel">
+      <div class="panel-head">
+        <h2>Subnets</h2>
+      </div>
+      <div class="summary-grid" id="subnetsBody">
+        <div class="muted">Carregando subnets...</div>
+      </div>
+    </section>
+
+    <section class="layout dhcp-layout">
+      <aside class="form-panel">
+        <div class="panel-head">
+          <h2 id="reservationFormTitle">Nova reservation</h2>
+          <button class="ghost" id="newReservation" type="button">Nova</button>
+        </div>
+        <form id="reservationForm">
+          <div class="field-grid">
+            <div class="field">
+              <label for="reservationSubnet">Subnet ID</label>
+              <input id="reservationSubnet" name="subnet_id" type="number" min="1" value="1" required>
+            </div>
+            <div class="field">
+              <label for="reservationIp">IP reservado</label>
+              <input id="reservationIp" name="ip_address" autocomplete="off" placeholder="10.88.0.111" required>
+            </div>
+            <div class="field full">
+              <label for="reservationMac">MAC</label>
+              <input id="reservationMac" name="hw_address" autocomplete="off" placeholder="aa:bb:cc:dd:ee:ff" required>
+            </div>
+            <div class="field full">
+              <label for="reservationHostname">Hostname</label>
+              <input id="reservationHostname" name="hostname" autocomplete="off" placeholder="client1">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="primary" id="saveReservation" type="submit">Salvar reservation</button>
+            <button class="ghost" id="cancelReservationEdit" type="button">Cancelar</button>
+          </div>
+        </form>
+      </aside>
+
+      <section class="rules-panel">
+        <div class="panel-head">
+          <h2>Reservations</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Subnet</th>
+                <th>IP</th>
+                <th>MAC</th>
+                <th>Hostname</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="reservationsBody">
+              <tr><td colspan="5" class="muted">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="rules-panel leases-panel">
+      <div class="panel-head">
+        <h2>Leases</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>MAC</th>
+              <th>Hostname</th>
+              <th>Subnet</th>
+              <th>Expira</th>
+              <th>Estado</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="leasesBody">
+            <tr><td colspan="7" class="muted">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='dhcp.js') }}"></script>
+</body>
+</html>

@@ -75,6 +75,34 @@ h1 {
   white-space: nowrap;
 }
 
+.top-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.top-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: #dbe7f3;
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.top-nav a.active {
+  background: #fff;
+  color: #102030;
+}
+
 main {
   padding: 24px 0 36px;
 }
@@ -290,6 +318,42 @@ button:hover {
   padding: 0 16px 16px;
 }
 
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.summary-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.summary-box strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.summary-box dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 10px;
+  margin: 0;
+}
+
+.summary-box dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.summary-box dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .group-box {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -348,6 +412,15 @@ button:hover {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.dhcp-layout {
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  margin-bottom: 18px;
+}
+
+.leases-panel {
+  margin-top: 18px;
 }
 
 table {

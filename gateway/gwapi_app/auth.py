@@ -35,12 +35,12 @@ def _safe_next_url(value):
 def require_auth_for_request():
     if request.endpoint in {"auth.login", "auth.logout", "static"}:
         return None
-    if not request.endpoint or not request.endpoint.startswith(("web.", "firewall.")):
+    if not request.endpoint or not request.endpoint.startswith(("web.", "firewall.", "dhcp.")):
         return None
     if is_authenticated() or has_valid_basic_auth():
         return None
 
-    wants_json = request.path == "/health" or request.path.startswith("/firewall")
+    wants_json = request.path == "/health" or request.path.startswith(("/firewall", "/dhcp"))
     if wants_json:
         return jsonify({"error": "autenticação requerida"}), 401
 

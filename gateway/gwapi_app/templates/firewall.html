@@ -13,6 +13,10 @@
         <h1>Firewall GW</h1>
       </div>
       <div class="header-meta">
+        <nav class="top-nav" aria-label="Navegação principal">
+          <a class="active" href="{{ url_for('web.firewall_ui') }}">Firewall</a>
+          <a href="{{ url_for('web.dhcp_ui') }}">DHCP</a>
+        </nav>
         <span class="pill" id="lanIf">LAN</span>
         <span class="pill" id="wanIf">WAN</span>
         <span class="pill" id="lanCidr">CIDR</span>

@@ -25,6 +25,7 @@ gw-kea-nftables/
 │   ├── gwapi_app/
 │   │   ├── firewall.py
 │   │   ├── dhcp.py
+│   │   ├── dhcp_service.py
 │   │   ├── web.py
 │   │   ├── templates/
 │   │   └── static/
@@ -119,6 +120,10 @@ KEA_CA_HOST_PORT=18000
 ADMIN_USER=admin
 ADMIN_PASSWORD=troque-esta-senha
 FLASK_SECRET_KEY=troque-esta-chave-por-uma-string-longa
+
+# Estado gerenciado pela API administrativa.
+DHCP_RESERVATIONS_FILE=/etc/gwapi/dhcp_reservations.json
+KEA_LEASES_FILE=/var/lib/kea/kea-leases4.csv
 ```
 
 ### Caso queira modificar algum desses valores, use o formulário automatizado e siga as perguntas do prompt:
@@ -286,9 +291,38 @@ curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/rules/drop-clien
 ```
 ---
 
-## API do DHCP/Kea
+## Gerência DHCP/Kea
 
-O Kea Control Agent fica publicado diretamente em `localhost:18000`.
+A interface administrativa também possui uma aba DHCP:
+
+```text
+http://localhost:18080/dhcp
+```
+
+Ela permite ver resumo das subnets, listar leases lidos de `/var/lib/kea/kea-leases4.csv`, criar/editar/remover reservations e aplicar o estado persistido em `DHCP_RESERVATIONS_FILE`.
+
+Endpoints gerenciados pela `gwapi`:
+
+```bash
+curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/summary | jq
+curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/leases | jq
+curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/reservations | jq
+```
+
+Criar reservation gerenciada:
+
+```bash
+curl -s -u "$FW_AUTH" -X POST http://localhost:18080/dhcp/reservations \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "subnet_id": 1,
+        "hw_address": "aa:bb:cc:dd:ee:ff",
+        "ip_address": "10.88.0.111",
+        "hostname": "client1"
+      }' | jq
+```
+
+O Kea Control Agent continua publicado diretamente em `localhost:18000`.
 
 Status do DHCPv4:
 
@@ -309,10 +343,10 @@ curl -s -X POST http://localhost:18000/ \
 A API do firewall também inclui um proxy simples para o Kea:
 
 ```bash
-curl -s http://localhost:18080/dhcp/status | jq
-curl -s http://localhost:18080/dhcp/config | jq
+curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/status | jq
+curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/config | jq
 
-curl -s -X POST http://localhost:18080/dhcp/kea \
+curl -s -u "$FW_AUTH" -X POST http://localhost:18080/dhcp/kea \
   -H 'Content-Type: application/json' \
   -d '{"command":"status-get", "service":["dhcp4"]}' | jq
 ```
@@ -479,5 +513,5 @@ Como dito desde o início nas reuniões, o papel de persistência é do `BACKEND
 1. Restringir o acesso às portas `18000` e `18080` por IP de origem ou colocar reverse proxy/TLS.
 2. Remover `privileged: true` e substituir por capacidades mínimas, como `NET_ADMIN` e `NET_RAW`, após validar no host alvo.
 3. Persistir `/var/lib/kea`, `/etc/kea` e `/etc/gwapi` em volumes nomeados. (Mesmo que não seja obrigação da aplicação manter os estados, não custa ter um backup próprio)
-4. Criar endpoints específicos para reservas DHCP, alteração de pool e listagem de leases, em vez de usar o proxy bruto para o Kea.
+4. Criar endpoints específicos para alteração de pool DHCP, além das reservations e leases já expostos pela `gwapi`.
 5. Evoluir a autenticação simples atual para um mecanismo próprio de produção, com TLS, rotação de segredo e autorização por perfil.

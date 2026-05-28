@@ -4,6 +4,7 @@ import sys
 
 from gwapi_app import create_app
 from gwapi_app.config import FW_API_PORT
+from gwapi_app.dhcp_service import apply_reservations
 from gwapi_app.firewall import apply_rules
 
 app = create_app()
@@ -23,6 +24,10 @@ def main():
         return 0
 
     apply_rules()
+    try:
+        apply_reservations(retries=5, delay=1)
+    except Exception as exc:  # noqa: BLE001 - API de laboratório
+        print(f"aviso: não consegui aplicar reservations DHCP: {exc}", file=sys.stderr)
     app.run(host="0.0.0.0", port=FW_API_PORT)
     return 0
 

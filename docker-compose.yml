@@ -18,6 +18,8 @@ services:
       ADMIN_USER: "${ADMIN_USER:-admin}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin}"
       FLASK_SECRET_KEY: "${FLASK_SECRET_KEY:-gwapi-dev-secret-change-me}"
+      DHCP_RESERVATIONS_FILE: "${DHCP_RESERVATIONS_FILE:-/etc/gwapi/dhcp_reservations.json}"
+      KEA_LEASES_FILE: "${KEA_LEASES_FILE:-/var/lib/kea/kea-leases4.csv}"
     ports:
       - "${FW_API_HOST_PORT:-18080}:${FW_API_PORT:-8080}"   # API do firewall
       - "${KEA_CA_HOST_PORT:-18000}:${KEA_CA_PORT:-8000}"   # Kea Control Agent
