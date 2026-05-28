@@ -57,6 +57,7 @@ h1 {
 .header-meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
   color: #dbe7f3;
@@ -138,6 +139,11 @@ form {
   padding: 16px;
 }
 
+.logout-form {
+  padding: 0;
+  margin: 0;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -215,6 +221,49 @@ button:hover {
   background: #fff;
   border-color: var(--line);
   color: #354255;
+}
+
+.logout-button {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-color: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 13px;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #102030;
+}
+
+.login-shell {
+  width: min(100% - 32px, 420px);
+  padding: 24px 0;
+}
+
+.login-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.login-panel h1 {
+  padding: 22px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: 24px;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 6px;
 }
 
 .rules-panel {

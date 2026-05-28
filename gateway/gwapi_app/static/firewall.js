@@ -28,6 +28,10 @@ async function api(path, options = {}) {
 
   const response = await fetch(path, { ...options, headers });
   const data = await response.json().catch(() => ({ error: "Resposta invalida" }));
+  if (response.status === 401) {
+    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+    throw new Error("Autenticação requerida");
+  }
   if (!response.ok) {
     throw new Error(data.error || `HTTP ${response.status}`);
   }

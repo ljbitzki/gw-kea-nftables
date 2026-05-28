@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login - Firewall GW</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='firewall.css') }}">
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-panel">
+      <h1>Firewall GW</h1>
+      <form method="post" action="{{ url_for('auth.login_post') }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        <div class="field">
+          <label for="username">Usuario</label>
+          <input id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        {% if error %}
+          <div class="status-line error">{{ error }}</div>
+        {% endif %}
+        <button class="primary login-submit" type="submit">Entrar</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

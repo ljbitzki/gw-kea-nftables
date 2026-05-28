@@ -15,6 +15,9 @@ services:
       DHCP_DOMAIN: "${DHCP_DOMAIN:-lab.local}"
       KEA_CA_PORT: "${KEA_CA_PORT:-8000}"
       FW_API_PORT: "${FW_API_PORT:-8080}"
+      ADMIN_USER: "${ADMIN_USER:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin}"
+      FLASK_SECRET_KEY: "${FLASK_SECRET_KEY:-gwapi-dev-secret-change-me}"
     ports:
       - "${FW_API_HOST_PORT:-18080}:${FW_API_PORT:-8080}"   # API do firewall
       - "${KEA_CA_HOST_PORT:-18000}:${KEA_CA_PORT:-8000}"   # Kea Control Agent

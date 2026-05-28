@@ -114,6 +114,11 @@ KEA_CA_PORT=8000
 # Portas publicadas no host.
 FW_API_HOST_PORT=18080
 KEA_CA_HOST_PORT=18000
+
+# Credenciais da interface/API administrativa do firewall.
+ADMIN_USER=admin
+ADMIN_PASSWORD=troque-esta-senha
+FLASK_SECRET_KEY=troque-esta-chave-por-uma-string-longa
 ```
 
 ### Caso queira modificar algum desses valores, use o formulário automatizado e siga as perguntas do prompt:
@@ -143,6 +148,9 @@ Interface web simples para CRUD das regras:
 ```text
 http://localhost:18080/
 ```
+
+O login usa `ADMIN_USER` e `ADMIN_PASSWORD` definidos no `.env`. A mesma sessão também protege os endpoints JSON do firewall.
+Para chamadas via `curl`, use HTTP Basic Auth com as mesmas credenciais, por exemplo `-u "$ADMIN_USER:$ADMIN_PASSWORD"`.
 
 Ver se a API está rodando:
 
@@ -439,8 +447,8 @@ docker compose up --build
 Como dito desde o início nas reuniões, o papel de persistência é do `BACKEND`. Caso o container do dhcp, que é efêmero, caia/trave/morra, cabe ao backend, que tem as reservas registradas em banco, refazer as liberações do firewall e recriação de reservations no DHCP.
 
 ## O que ainda não foi feito:
-1. Restringir o acesso às portas `18000` e `18080` por IP de origem ou colocar autenticação/reverse proxy.
+1. Restringir o acesso às portas `18000` e `18080` por IP de origem ou colocar reverse proxy/TLS.
 2. Remover `privileged: true` e substituir por capacidades mínimas, como `NET_ADMIN` e `NET_RAW`, após validar no host alvo.
 3. Persistir `/var/lib/kea`, `/etc/kea` e `/etc/gwapi` em volumes nomeados. (Mesmo que não seja obrigação da aplicação manter os estados, não custa ter um backup próprio)
 4. Criar endpoints específicos para reservas DHCP, alteração de pool e listagem de leases, em vez de usar o proxy bruto para o Kea.
-5. Adicionar autenticação e autorização na API de firewall antes de usar fora de ambiente de teste. No momento, dada a correria, nada de segurança foi implementado.
+5. Evoluir a autenticação simples atual para um mecanismo próprio de produção, com TLS, rotação de segredo e autorização por perfil.
