@@ -1,61 +1,85 @@
-# Protótipo LEAS: container gateway de rede, com Kea DHCP e firewall nftables
+# Protótipo LEAS: gateway de rede em container com Kea DHCP e firewall nftables
 
-Este protótipo sobe um container `gw` com duas interfaces:
+Este repositório contém o artefato associado ao artigo "Protótipo LEAS: gateway de rede em container com Kea DHCP e firewall nftables". O artefato implementa um laboratório reprodutível em Docker Compose no qual um container `gw` atua como gateway entre uma rede WAN e uma rede LAN isolada, oferecendo DHCPv4 com Kea, NAT, filtragem com `nftables` e uma API/interface web para administrar regras de firewall e reservas DHCP.
 
-- `wan`: rede Docker bridge comum, com saída para internet pelo host;
-- `lan`: rede Docker bridge `internal`, isolada, onde o `gw` usa IP fixo `10.88.0.1`;
-- `kea-dhcp4`: entrega IPs na LAN, por padrão de `10.88.0.100` a `10.88.0.200`;
-- `kea-ctrl-agent`: expõe API REST do Kea na porta `8000` do container, publicada no host como `18000`;
-- `gwapi`: API simples para manipular firewall `nftables`, na porta `8080` do container, publicada no host como `18080`.
+O objetivo do artefato é demonstrar que uma infraestrutura de laboratório pode provisionar clientes em uma LAN isolada por DHCP, encaminhar o tráfego desses clientes por um gateway controlado e aplicar políticas de firewall e reservas DHCP dinamicamente por uma API administrativa. O ambiente é autocontido: não requer nuvem, chaves privadas, equipamentos físicos externos ou bases de dados de terceiros.
 
-> [!NOTE]
-> Observação importante: Docker bridge não usa DHCP para endereçar containers. Por isso os clientes deste laboratório iniciam com IP temporário do IPAM Docker, removem esse IP e executam `dhclient` para obter lease real do Kea. Para evitar colisão, o `ip_range` da LAN Docker fica em `10.88.0.240/28`, enquanto o pool Kea fica em `10.88.0.100-10.88.0.200`.
+## Estrutura do README.md
 
->[!TIP]
-> Essas informações de rede poderão ser facilmente reconfiguradas executando `python3 reconfigure.py`
+Este README está organizado para atender aos requisitos mínimos de avaliação de artefatos do SBRC 2026:
 
-## Estrutura
+- **Selos Considerados**: lista os selos pretendidos para avaliação.
+- **Informações básicas**: descreve a arquitetura, o ambiente de execução e a organização do repositório.
+- **Dependências**: apresenta os pacotes, versões e componentes necessários.
+- **Preocupações com segurança**: indica riscos e cuidados para executar o artefato.
+- **Instalação**: mostra como obter, configurar e iniciar o ambiente.
+- **Teste mínimo**: fornece uma execução curta para validar a instalação.
+- **Experimentos**: descreve como reproduzir as principais reivindicações do artigo.
+- **LICENSE**: informa a licença do artefato.
+
+### Estrutura do repositório
 
 ```text
 gw-kea-nftables/
-├── docker-compose.yml
+├── docker-compose.yml          # Orquestra o gateway e dois clientes de laboratório
+├── reconfigure.py              # Assistente para alterar rede, pool DHCP e portas publicadas
+├── .env.example                # Exemplo de configuração do ambiente
+├── LICENSE                     # Licença BSD 3-Clause
 ├── gateway/
-│   ├── Dockerfile
-│   ├── gwapi.py
-│   ├── gwapi_app/
-│   │   ├── firewall.py
-│   │   ├── dhcp.py
-│   │   ├── dhcp_service.py
-│   │   ├── web.py
-│   │   ├── templates/
-│   │   └── static/
-│   └── start-gateway.sh
-└── client/               # Apenas para exemplificar o funcionamento
-    ├── Dockerfile        # Apenas para exemplificar o funcionamento
-    └── start-client.sh   # Apenas para exemplificar o funcionamento
+│   ├── Dockerfile              # Imagem do gateway
+│   ├── start-gateway.sh        # Inicializa Kea, Kea Control Agent, nftables e gwapi
+│   ├── gwapi.py                # Ponto de entrada da API Flask
+│   └── gwapi_app/
+│       ├── auth.py             # Autenticação por sessão web e HTTP Basic Auth
+│       ├── config.py           # Configuração por variáveis de ambiente
+│       ├── firewall.py         # Estado, validação e aplicação de regras nftables
+│       ├── dhcp.py             # Endpoints HTTP para DHCP/Kea
+│       ├── dhcp_service.py     # Leitura de leases e aplicação de reservations no Kea
+│       ├── web.py              # Rotas das interfaces web
+│       ├── templates/          # Telas HTML
+│       └── static/             # JavaScript e CSS das telas administrativas
+└── client/
+    ├── Dockerfile              # Imagem dos clientes de teste
+    └── start-client.sh         # Remove IP temporário do Docker e solicita DHCP via Kea
 ```
 
-## Arquitetura lógica
+## Selos Considerados
+
+Os selos considerados são:
+
+- **Artefatos Disponíveis (SeloD)**: o código-fonte, scripts e configuração do experimento estão disponíveis neste repositório.
+- **Artefatos Funcionais (SeloF)**: o artefato pode ser executado localmente com Docker Compose e permite observar DHCP, NAT, firewall e API administrativa.
+- **Artefatos Sustentáveis (SeloS)**: o código está modularizado em componentes de gateway, API, firewall, DHCP e clientes de teste.
+- **Experimentos Reprodutíveis (SeloR)**: as principais reivindicações podem ser reproduzidas por comandos documentados neste README.
+
+## Informações básicas
+
+### Arquitetura lógica
+
+O ambiente sobe três containers:
+
+- `gw`: gateway privilegiado com duas interfaces, uma na rede `wan` e outra na rede `lan`.
+- `client1` e `client2`: clientes de laboratório conectados apenas à rede `lan`.
 
 ```text
-Internet/Host
+Host / Internet
     |
-    | rede Docker wan
+    | Docker bridge wan
     |
-+-------------------+
-| gw                |
-|-------------------|
-| wan: DHCP Docker  |
-| lan: 10.88.0.1    |
-|                   |
-| NAT nftables      |
-| firewall nftables |
-| Kea DHCPv4        |
-| Kea Ctrl Agent    |
-| gwapi             |
-+-------------------+
++-------------------------------+
+| gw                            |
+|-------------------------------|
+| WAN: IP atribuído pelo Docker |
+| LAN: 10.88.0.1                |
+|                               |
+| Kea DHCPv4                    |
+| Kea Control Agent             |
+| NAT nftables                  |
+| Firewall nftables             |
+| gwapi Flask                   |
++-------------------------------+
     |
-    | rede Docker lan internal
+    | Docker bridge lan internal
     |
 +-------------------+       +-------------------+
 | client1           |       | client2           |
@@ -63,153 +87,436 @@ Internet/Host
 +-------------------+       +-------------------+
 ```
 
-## Ambiente de testes e desenvolvimento:
+A rede `lan` é uma bridge Docker `internal`, portanto os clientes não têm saída direta para a Internet. O tráfego deve passar pelo container `gw`, que faz NAT e aplica a política de firewall.
+
+Observação importante: bridges Docker não usam DHCP para endereçar containers. Por isso, os clientes iniciam com um IP temporário do IPAM Docker, removem esse endereço e executam `dhclient` para obter um lease real do Kea. Para evitar colisão, a faixa temporária do Docker (`LAN_DOCKER_IP_RANGE`) fica separada do pool entregue pelo Kea.
+
+### Configuração padrão
+
+| Item | Valor padrão |
+|---|---|
+| LAN do laboratório | `10.88.0.0/24` |
+| IP do gateway na LAN | `10.88.0.1` |
+| Gateway interno da bridge Docker | `10.88.0.254` |
+| Faixa temporária do IPAM Docker | `10.88.0.240/28` |
+| Pool DHCP do Kea | `10.88.0.100 - 10.88.0.200` |
+| DNS entregue por DHCP | `1.1.1.1, 9.9.9.9` |
+| Domínio entregue por DHCP | `lab.local` |
+| API/interface do firewall no host | `http://localhost:18080` |
+| Kea Control Agent no host | `http://localhost:18000` |
+| Usuário administrativo de laboratório | `admin` |
+| Senha administrativa de laboratório | `troque-esta-senha` |
+
+### Portas publicadas no host
+
+| Serviço | URL padrão | Uso |
+|---|---|---|
+| `gwapi` / interface web | `http://localhost:18080` | Gerência de firewall, grupos, DHCP e proxy para Kea |
+| Kea Control Agent | `http://localhost:18000` | API nativa do Kea para comandos `status-get`, `config-get` e `config-set` |
+
+### Ambiente usado no desenvolvimento
+
+O artefato foi desenvolvido e testado no seguinte ambiente:
+
 - Kubuntu 24.04 LTS
-- AMD Ryzen 5 5600X 6-Core Processor
-- 32GB de memória RAM DDR4
+- Docker 29.4
+- Processador AMD Ryzen 5 5600X, 6 cores
+- 32 GB de RAM
 - Armazenamento NVMe
-- Docker v29.4
 
-## Requisitos básicos:
-Pacotes: `git`, `jq`, `curl` e `docker` (instalado conforme [documentação oficial](https://docs.docker.com/engine/install/ubuntu/)) .
-```
-sudo apt update
-sudo apt install git jq curl -y
-```
+Para a avaliação, recomenda-se uma máquina virtual Linux recente com pelo menos 2 vCPUs, 4 GB de RAM livres e 5 GB de espaço em disco. O experimento mínimo costuma executar em poucos minutos após o download das imagens e pacotes.
 
-## Clonar o repositório e entrar no diretório
+## Dependências
+
+### Dependências no host
+
+- Linux com suporte a Docker Engine.
+- Docker Engine com o plugin `docker compose`.
+- `git`, para clonar o repositório.
+- `curl` e `jq`, para executar e inspecionar chamadas HTTP.
+- `python3`, apenas se o avaliador quiser executar `reconfigure.py`.
+
+Em Ubuntu/Kubuntu:
 
 ```bash
-git clone git@github.com:GT-IoTEdu/gw-kea-nftables.git
-cd gw-kea-nftables || exit 1
+sudo apt update
+sudo apt install -y git curl jq python3
 ```
 
-## Reconfigurar os endereços envolvidos na WAN/LAN/DHCP (opcional, a configuração atual é):
+Instale o Docker conforme a documentação oficial da distribuição usada. Depois confirme:
+
+```bash
+docker --version
+docker compose version
+```
+
+### Dependências dentro dos containers
+
+As imagens são construídas a partir de `ubuntu:24.04`.
+
+O container `gw` instala:
+
+- `kea`
+- `nftables`
+- `python3`
+- `python3-flask`
+- `iproute2`
+- `iputils-ping`
+- `curl`
+- `jq`
+- `net-tools`
+- `procps`
+- `ca-certificates`
+
+Os containers `client1` e `client2` instalam:
+
+- `isc-dhcp-client`
+- `iproute2`
+- `iputils-ping`
+- `dnsutils`
+- `curl`
+- `ca-certificates`
+
+Não há benchmark externo, dataset, credencial privada ou serviço de nuvem necessário para reproduzir os testes documentados.
+
+## Preocupações com segurança
+
+Este artefato cria containers privilegiados para permitir manipulação de interfaces de rede, rotas, DHCP e `nftables`. Execute-o em uma máquina de laboratório ou máquina virtual descartável, especialmente durante a avaliação.
+
+Cuidados recomendados:
+
+- Não exponha as portas `18080` e `18000` para redes não confiáveis.
+- Altere `ADMIN_PASSWORD` e `FLASK_SECRET_KEY` no arquivo `.env` antes de qualquer uso fora de uma máquina local isolada.
+- Considere o Kea Control Agent em `18000` uma interface administrativa sensível.
+- Não execute este Compose em um host de produção.
+- Ao terminar os testes, remova containers, redes e volumes com `docker compose down -v`.
+
+O `nftables` é aplicado dentro do namespace de rede do container `gw`. Ainda assim, como o container é privilegiado, a recomendação para os revisores é executar o artefato em ambiente isolado.
+
+## Instalação
+
+### 1. Clonar o repositório
+
+```bash
+git clone git@github.com:ljbitzki/gw-kea-nftables.git
+cd gw-kea-nftables
+```
+
+Se preferir HTTPS:
+
+```bash
+git clone https://github.com/ljbitzki/gw-kea-nftables.git
+cd gw-kea-nftables
+```
+
+### 2. Criar o arquivo de configuração
+
+```bash
+cp .env.example .env
+```
+
+Revise pelo menos estas variáveis:
+
 ```text
-# Endereço do container gateway na LAN. Também será anunciado pelo DHCP como gateway dos clientes.
-LAN_IP=10.88.0.1
-
-# Rede LAN dos containers.
-LAN_CIDR=10.88.0.0/24
-
-# Gateway interno da bridge Docker. Deve estar na LAN, mas não deve ser igual ao LAN_IP.
-LAN_DOCKER_GATEWAY=10.88.0.254
-
-# Faixa usada pelo IPAM do Docker para IPs temporários dos containers. Deve ficar fora do pool DHCP do Kea para evitar colisão.
-LAN_DOCKER_IP_RANGE=10.88.0.240/28
-
-# Pool DHCP entregue pelo Kea aos clientes da LAN.
-DHCP_POOL_START=10.88.0.100
-DHCP_POOL_END=10.88.0.200
-
-# DNS entregue por DHCP. Lista separada por vírgula.
-DHCP_DNS=1.1.1.1, 9.9.9.9
-
-# Domínio entregue pelo DHCP aos clientess.
-DHCP_DOMAIN=lab.local
-
-# Portas internas dos serviços no container Gateway.
-FW_API_PORT=8080
-KEA_CA_PORT=8000
-
-# Portas publicadas no host.
-FW_API_HOST_PORT=18080
-KEA_CA_HOST_PORT=18000
-
-# Credenciais da interface/API administrativa do firewall.
 ADMIN_USER=admin
 ADMIN_PASSWORD=troque-esta-senha
 FLASK_SECRET_KEY=troque-esta-chave-por-uma-string-longa
-
-# Estado gerenciado pela API administrativa.
-DHCP_RESERVATIONS_FILE=/etc/gwapi/dhcp_reservations.json
-KEA_LEASES_FILE=/var/lib/kea/kea-leases4.csv
+FW_API_HOST_PORT=18080
+KEA_CA_HOST_PORT=18000
 ```
 
-### Caso queira modificar algum desses valores, use o formulário automatizado e siga as perguntas do prompt:
+Opcionalmente, altere a topologia de rede com o assistente:
+
 ```bash
 python3 reconfigure.py
 ```
 
-## Para subir esse "protótipo"
+Após usar o assistente, confira novamente o arquivo `.env`, em especial as credenciais administrativas e a chave Flask.
+
+### 3. Construir e iniciar o laboratório
 
 ```bash
-docker compose up -d --build 
+docker compose up -d --build
 ```
 
---- 
+### 4. Conferir se os containers estão em execução
 
-## Portas publicadas no host
+```bash
+docker compose ps
+```
 
-| Serviço | URL no host | Uso |
-|---|---:|---|
-| Firewall API / `gwapi` | `http://localhost:18080` | Manipulação de política e regras de firewall |
-| Kea Control Agent | `http://localhost:18000` | Controle direto do Kea DHCPv4 |
+O resultado esperado é que `gw`, `client1` e `client2` estejam em execução.
 
-## API do firewall
+### 5. Preparar variáveis para os comandos de teste
 
-Interface web simples para CRUD das regras:
+Os comandos abaixo evitam usar `source .env`, pois alguns valores do arquivo podem conter espaços.
+
+```bash
+ADMIN_USER="$(sed -n 's/^ADMIN_USER=//p' .env)"
+ADMIN_PASSWORD="$(sed -n 's/^ADMIN_PASSWORD=//p' .env)"
+FW_API_HOST_PORT="$(sed -n 's/^FW_API_HOST_PORT=//p' .env)"
+KEA_CA_HOST_PORT="$(sed -n 's/^KEA_CA_HOST_PORT=//p' .env)"
+FW_API_HOST_PORT="${FW_API_HOST_PORT:-18080}"
+KEA_CA_HOST_PORT="${KEA_CA_HOST_PORT:-18000}"
+FW_AUTH="${ADMIN_USER:-admin}:${ADMIN_PASSWORD:-admin}"
+```
+
+## Teste mínimo
+
+Este teste valida que o laboratório sobe, que a API responde, que os clientes recebem DHCP via Kea e que o tráfego LAN -> WAN passa pelo gateway.
+
+### 1. Verificar saúde da API
+
+```bash
+curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/health" | jq
+```
+
+Resultado esperado:
+
+- JSON com `status: "ok"`.
+- Campos `lan_if`, `wan_if`, `lan_cidr` e `kea_ca_url` preenchidos.
+
+### 2. Verificar leases DHCP
+
+```bash
+curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/dhcp/leases" | jq
+```
+
+Resultado esperado:
+
+- Lista com leases para `client1` e `client2`.
+- Endereços dentro do pool `10.88.0.100 - 10.88.0.200`.
+
+Também é possível conferir diretamente no cliente:
+
+```bash
+docker exec client1 ip -4 addr show eth0
+docker exec client1 ip route
+```
+
+Resultado esperado:
+
+- `client1` possui endereço na rede `10.88.0.0/24`.
+- A rota padrão aponta para `10.88.0.1`.
+
+### 3. Verificar conectividade a partir da LAN
+
+```bash
+docker exec client1 ping -c 3 1.1.1.1
+docker exec client1 curl -I --max-time 10 http://example.org
+```
+
+Resultado esperado:
+
+- O `ping` recebe respostas.
+- O `curl` retorna cabeçalhos HTTP.
+
+### 4. Encerrar o ambiente após o teste
+
+```bash
+docker compose down -v
+```
+
+## Experimentos
+
+Os experimentos abaixo reproduzem as principais reivindicações do artefato. Antes de executá-los, inicie o laboratório conforme a seção **Instalação** e prepare `FW_AUTH`, `FW_API_HOST_PORT` e `KEA_CA_HOST_PORT` conforme indicado.
+
+### Reivindicação 1: o gateway entrega endereços DHCP na LAN isolada
+
+**Objetivo.** Demonstrar que os clientes da rede `lan` recebem leases do Kea DHCPv4 executando no gateway.
+
+**Comandos.**
+
+```bash
+curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/dhcp/summary" | jq
+curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/dhcp/leases" | jq
+docker exec client1 ip -4 addr show eth0
+docker exec client2 ip -4 addr show eth0
+```
+
+**Tempo esperado.** Menos de 1 minuto após o ambiente estar iniciado.
+
+**Recursos esperados.** Menos de 1 GB de RAM adicional para os containers em execução.
+
+**Resultado esperado.** A API mostra a subnet `10.88.0.0/24`, pool `10.88.0.100 - 10.88.0.200` e leases ativos para os clientes. Os clientes apresentam endereços da LAN e rota padrão via `10.88.0.1`.
+
+### Reivindicação 2: os clientes acessam a WAN por NAT no gateway
+
+**Objetivo.** Demonstrar que a LAN Docker é isolada e que a saída ocorre pelo gateway `gw`, via regra de masquerade em `nftables`.
+
+**Comandos.**
+
+```bash
+docker exec client1 ip route
+docker exec client1 ping -c 3 1.1.1.1
+docker exec gw nft list ruleset
+```
+
+**Tempo esperado.** Menos de 1 minuto.
+
+**Recursos esperados.** Tráfego mínimo de rede e uso desprezível de disco.
+
+**Resultado esperado.** O cliente usa `10.88.0.1` como gateway padrão, o `ping` responde e o ruleset contém uma cadeia `postrouting` com `masquerade` para a rede `10.88.0.0/24`.
+
+### Reivindicação 3: a API altera dinamicamente a política do firewall
+
+**Objetivo.** Demonstrar que uma regra inserida via API é persistida no estado da `gwapi` e aplicada em `nftables`.
+
+**Comandos.**
+
+Adicionar `client1` ao grupo de bloqueados:
+
+```bash
+CLIENT1_IP="$(docker exec client1 sh -c "ip -4 -o addr show eth0 | awk '{print \$4}' | cut -d/ -f1")"
+curl -s -u "$FW_AUTH" -X POST "http://localhost:${FW_API_HOST_PORT}/firewall/groups/manual_blocked/members" \
+  -H 'Content-Type: application/json' \
+  -d "{\"member\":\"${CLIENT1_IP}/32\"}" | jq
+```
+
+Testar o bloqueio:
+
+```bash
+docker exec client1 ping -c 3 1.1.1.1
+```
+
+Remover o bloqueio:
+
+```bash
+curl -s -u "$FW_AUTH" -X DELETE "http://localhost:${FW_API_HOST_PORT}/firewall/groups/manual_blocked/members" \
+  -H 'Content-Type: application/json' \
+  -d "{\"member\":\"${CLIENT1_IP}/32\"}" | jq
+docker exec client1 ping -c 3 1.1.1.1
+```
+
+**Tempo esperado.** Menos de 2 minutos.
+
+**Recursos esperados.** Sem uso relevante de disco; apenas chamadas HTTP locais e atualização do ruleset.
+
+**Resultado esperado.** Enquanto o IP está em `manual_blocked`, o tráfego de `client1` para a WAN falha. Após remover o membro, o `ping` volta a responder.
+
+### Reivindicação 4: a API gerencia reservas DHCP no Kea
+
+**Objetivo.** Demonstrar que a `gwapi` cria uma reserva DHCP, aplica a configuração no Kea e permite observar a reserva na configuração ativa.
+
+**Comandos.**
+
+Ler o MAC atual de `client1`:
+
+```bash
+CLIENT1_MAC="$(docker exec client1 cat /sys/class/net/eth0/address)"
+```
+
+Criar uma reserva para `10.88.0.111`:
+
+```bash
+curl -s -u "$FW_AUTH" -X POST "http://localhost:${FW_API_HOST_PORT}/dhcp/reservations" \
+  -H 'Content-Type: application/json' \
+  -d "{
+        \"subnet_id\": 1,
+        \"hw_address\": \"${CLIENT1_MAC}\",
+        \"ip_address\": \"10.88.0.111\",
+        \"hostname\": \"client1\"
+      }" | jq
+```
+
+Conferir a configuração ativa:
+
+```bash
+curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/dhcp/config" \
+  | jq '.subnet4[] | select(.id == 1) | .reservations'
+```
+
+Forçar renovação do lease no cliente:
+
+```bash
+docker exec client1 dhclient -r eth0
+docker exec client1 dhclient -v eth0
+docker exec client1 ip -4 addr show eth0
+```
+
+**Tempo esperado.** Menos de 3 minutos.
+
+**Recursos esperados.** Sem uso relevante de disco; altera apenas o estado JSON da `gwapi` e a configuração em memória do Kea.
+
+**Resultado esperado.** A reserva aparece em `/dhcp/config` com o MAC de `client1` e IP `10.88.0.111`. Após renovar o lease, `client1` passa a usar o IP reservado.
+
+### Reivindicação 5: a configuração de rede pode ser reproduzida por `.env`
+
+**Objetivo.** Demonstrar que a topologia do laboratório é parametrizada por variáveis de ambiente e pode ser recriada de forma controlada.
+
+**Comandos.**
+
+```bash
+python3 reconfigure.py
+docker compose down -v
+docker compose up -d --build
+docker compose ps
+curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/health" | jq
+```
+
+**Tempo esperado.** De 2 a 5 minutos, dependendo do cache local das imagens Docker.
+
+**Recursos esperados.** Até alguns GB de tráfego/disco caso as imagens precisem ser reconstruídas sem cache.
+
+**Resultado esperado.** O Compose recria as redes com os valores definidos em `.env`, o container `gw` sobe com o IP LAN configurado, e `/health` retorna a nova configuração.
+
+## Uso da API e da interface web
+
+### Interface web
+
+A interface administrativa principal fica em:
 
 ```text
 http://localhost:18080/
 ```
 
-O login usa `ADMIN_USER` e `ADMIN_PASSWORD` definidos no `.env`. A mesma sessão também protege os endpoints JSON do firewall.
-Para chamadas via `curl`, use HTTP Basic Auth com as mesmas credenciais, por exemplo `-u "$ADMIN_USER:$ADMIN_PASSWORD"`.
+A tela de DHCP fica em:
 
-Para os exemplos abaixo:
-
-```bash
-set -a
-source .env
-set +a
-FW_AUTH="${ADMIN_USER}:${ADMIN_PASSWORD}"
+```text
+http://localhost:18080/dhcp
 ```
 
-Ver se a API está rodando:
+O login usa `ADMIN_USER` e `ADMIN_PASSWORD` do arquivo `.env`.
+
+### Endpoints principais
+
+| Método | Caminho | Descrição |
+|---|---|---|
+| `GET` | `/health` | Saúde da API e informações de rede |
+| `GET` | `/firewall` | Estado completo do firewall |
+| `POST` | `/firewall/apply` | Reaplica o ruleset |
+| `PUT` | `/firewall/default` | Altera a política padrão para `allow` ou `drop` |
+| `POST` | `/firewall/rules` | Cria regra de firewall |
+| `GET` | `/firewall/rules/<rule_id>` | Consulta regra |
+| `PUT` | `/firewall/rules/<rule_id>` | Atualiza regra não sistêmica |
+| `DELETE` | `/firewall/rules/<rule_id>` | Remove regra não sistêmica |
+| `GET` | `/firewall/groups` | Lista grupos de endereços |
+| `POST` | `/firewall/groups` | Cria grupo |
+| `POST` | `/firewall/groups/<group_id>/members` | Adiciona membro a grupo |
+| `DELETE` | `/firewall/groups/<group_id>/members` | Remove membro de grupo |
+| `GET` | `/dhcp/status` | Consulta status do Kea DHCPv4 |
+| `GET` | `/dhcp/config` | Consulta configuração ativa do Kea DHCPv4 |
+| `GET` | `/dhcp/summary` | Resumo de DHCP, leases e reservas |
+| `GET` | `/dhcp/leases` | Lista leases lidos do arquivo memfile do Kea |
+| `GET` | `/dhcp/reservations` | Lista reservas gerenciadas pela `gwapi` |
+| `POST` | `/dhcp/reservations` | Cria reserva DHCP |
+| `PUT` | `/dhcp/reservations/<reservation_id>` | Atualiza reserva DHCP |
+| `DELETE` | `/dhcp/reservations/<reservation_id>` | Remove reserva DHCP |
+| `POST` | `/dhcp/apply` | Reaplica reservas no Kea |
+| `POST` | `/dhcp/kea` | Proxy autenticado para comandos do Kea Control Agent |
+
+### Exemplos rápidos
+
+Consultar firewall:
 
 ```bash
-curl -s -u "$FW_AUTH" http://localhost:18080/health | jq
+curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/firewall" | jq
 ```
 
-Ver política de firewall atual:
+Permitir SSH de saída:
 
 ```bash
-curl -s -u "$FW_AUTH" http://localhost:18080/firewall | jq
-```
-
-Ver ruleset efetivo no `nftables`:
-
-```bash
-docker exec -it gw nft list ruleset
-```
-
-Por padrão, a política LAN -> WAN é `drop`, com regras liberando DNS, HTTP, HTTPS e ICMP.
-Também existem dois grupos padrão, implementados como `sets` do `nftables`:
-
-- `manual_blocked`: hosts/redes manualmente bloqueados, avaliado antes das liberações;
-- `manual_allowed`: hosts/redes manualmente liberados, avaliado depois dos bloqueados.
-
-Adicionar o cliente `10.88.0.100` ao grupo de bloqueados:
-
-```bash
-curl -s -u "$FW_AUTH" -X POST http://localhost:18080/firewall/groups/manual_blocked/members \
-  -H 'Content-Type: application/json' \
-  -d '{"member":"10.88.0.100/32"}' | jq
-```
-
-Remover o mesmo cliente do grupo:
-
-```bash
-curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/groups/manual_blocked/members \
-  -H 'Content-Type: application/json' \
-  -d '{"member":"10.88.0.100/32"}' | jq
-```
-
-### Adicionar uma regra para permitir SSH de saída
-
-```bash
-curl -s -u "$FW_AUTH" -X POST http://localhost:18080/firewall/rules \
+curl -s -u "$FW_AUTH" -X POST "http://localhost:${FW_API_HOST_PORT}/firewall/rules" \
   -H 'Content-Type: application/json' \
   -d '{
         "id": "allow-ssh",
@@ -220,298 +527,83 @@ curl -s -u "$FW_AUTH" -X POST http://localhost:18080/firewall/rules \
       }' | jq
 ```
 
-### Remover a regra de SSH (por nome)
+Remover a regra:
 
 ```bash
-curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/rules/allow-ssh | jq
+curl -s -u "$FW_AUTH" -X DELETE "http://localhost:${FW_API_HOST_PORT}/firewall/rules/allow-ssh" | jq
 ```
 
-### Mudar política default para permitir tudo (apenas demonstração, não fazer isso obviamente)
+Consultar o Kea diretamente:
 
 ```bash
-curl -s -u "$FW_AUTH" -X PUT http://localhost:18080/firewall/default \
-  -H 'Content-Type: application/json' \
-  -d '{"policy":"allow"}' | jq
-```
-
-### Mudar política default para bloquear tudo que não esteja explicitamente liberado
-
-```bash
-curl -s -u "$FW_AUTH" -X PUT http://localhost:18080/firewall/default \
-  -H 'Content-Type: application/json' \
-  -d '{"policy":"drop"}' | jq
-```
-
-## Exemplos um pouco mais complexos do firewall
-
-- `src`: endereço ou rede de origem, por exemplo `10.88.0.200/32`;
-- `position`: posição de inserção da regra, por exemplo `first` ou `last`.
-
-
-```text
-ip saddr 10.88.0.200/32 drop
-```
-
-Além disso, como já existem regras liberando DNS, HTTP, HTTPS e ICMP, a regra de bloqueio precisa ser inserida no topo da cadeia, antes das permissões existentes.
-
-### Inserir regra que bloqueia por completo o tráfego do cliente `10.88.0.200`
-
-```bash
-curl -s -u "$FW_AUTH" -X POST http://localhost:18080/firewall/rules \
-  -H 'Content-Type: application/json' \
-  -d '{
-        "id": "drop-client-10-88-0-200",
-        "position": "first",
-        "action": "drop",
-        "src": "10.88.0.200/32",
-        "proto": "all",
-        "description": "Bloqueia completamente o cliente 10.88.0.200 para a internet"
-      }' | jq
-```
-
-Verificar no firewall:
-
-```bash
-docker exec -it gw nft list ruleset
-```
-
-A regra deve aparecer antes das regras permissivas, como `allow-dns`, `allow-http`, `allow-https` e `allow-icmp`.
-
-### Remover a regra anterior, se ela existir
-
-```bash
-curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/rules/drop-client-10-88-0-200 | jq
-```
-
-Versão que trata `404` como “não havia regra para remover”:
-
-```bash
-curl -s -u "$FW_AUTH" -X DELETE http://localhost:18080/firewall/rules/drop-client-10-88-0-200 \
-  | jq 'if .error == "regra não encontrada" then {removed:false, reason:.error} else {removed:true} end'
-```
----
-
-## Gerência DHCP/Kea
-
-A interface administrativa também possui uma aba DHCP:
-
-```text
-http://localhost:18080/dhcp
-```
-
-Ela permite ver resumo das subnets, listar leases lidos de `/var/lib/kea/kea-leases4.csv`, criar/editar/remover reservations e aplicar o estado persistido em `DHCP_RESERVATIONS_FILE`.
-
-Endpoints gerenciados pela `gwapi`:
-
-```bash
-curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/summary | jq
-curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/leases | jq
-curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/reservations | jq
-```
-
-Criar reservation gerenciada:
-
-```bash
-curl -s -u "$FW_AUTH" -X POST http://localhost:18080/dhcp/reservations \
-  -H 'Content-Type: application/json' \
-  -d '{
-        "subnet_id": 1,
-        "hw_address": "aa:bb:cc:dd:ee:ff",
-        "ip_address": "10.88.0.111",
-        "hostname": "client1"
-      }' | jq
-```
-
-O Kea Control Agent continua publicado diretamente em `localhost:18000`.
-
-Status do DHCPv4:
-
-```bash
-curl -s -X POST http://localhost:18000/ \
+curl -s -X POST "http://localhost:${KEA_CA_HOST_PORT}/" \
   -H 'Content-Type: application/json' \
   -d '{"command":"status-get", "service":["dhcp4"]}' | jq
 ```
 
-Configuração ativa:
+Consultar o Kea pelo proxy autenticado da `gwapi`:
 
 ```bash
-curl -s -X POST http://localhost:18000/ \
-  -H 'Content-Type: application/json' \
-  -d '{"command":"config-get", "service":["dhcp4"]}' | jq
-```
-
-A API do firewall também inclui um proxy simples para o Kea:
-
-```bash
-curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/status | jq
-curl -s -u "$FW_AUTH" http://localhost:18080/dhcp/config | jq
-
-curl -s -u "$FW_AUTH" -X POST http://localhost:18080/dhcp/kea \
+curl -s -u "$FW_AUTH" -X POST "http://localhost:${FW_API_HOST_PORT}/dhcp/kea" \
   -H 'Content-Type: application/json' \
   -d '{"command":"status-get", "service":["dhcp4"]}' | jq
 ```
 
-## Exemplos de reservas DHCP no Kea
+## Persistência e limpeza
 
-Os exemplos abaixo manipulam a configuração ativa do Kea usando:
+O estado do firewall é armazenado em `/etc/gwapi/firewall_state.json` dentro do container `gw`. As reservas DHCP gerenciadas pela `gwapi` são armazenadas em `/etc/gwapi/dhcp_reservations.json`. Os leases do Kea são lidos de `/var/lib/kea/kea-leases4.csv`.
 
-1. `config-get`, para buscar a configuração atual;
-2. `jq`, para alterar somente a lista de reservas da subnet desejada;
-3. `config-set`, para aplicar a configuração alterada.
+Na configuração atual, esses caminhos não estão montados em volumes nomeados. Portanto, `docker compose down -v` remove o estado do laboratório. Esta decisão mantém o experimento simples e descartável para avaliação.
 
-No protótipo, a subnet LAN possui `id: 1` e rede `10.88.0.0/24`.
-
-### Criar reserva do MAC `aa:bb:cc:dd:ee:ff` para o IP `10.88.0.111`
-> [!WARNING]
-> É importante haver um tratamento mínimo para evitar ficar tentando incluir/remover coisas do KEA em redes ou reservations que não existe.
-
+Para parar sem remover redes e volumes:
 
 ```bash
-#!/usr/bin/env bash
-KEA_API="http://localhost:18000/"
-MAC="aa:bb:cc:dd:ee:ff"
-IP="10.88.0.111"
-SUBNET_ID="1"
-
-tmp="$(mktemp)"
-
-curl -s -X POST "$KEA_API" \
-  -H 'Content-Type: application/json' \
-  -d '{"command":"config-get", "service":["dhcp4"]}' \
-| jq --arg mac "$MAC" --arg ip "$IP" --argjson subnet_id "$SUBNET_ID" '
-    .[0].arguments.Dhcp4
-    | .subnet4 |= map(
-        if .id == $subnet_id then
-          .reservations = (
-            (.reservations // [])
-            | map(select(.["ip-address"] != $ip and .["hw-address"] != $mac))
-            + [
-                {
-                  "hw-address": $mac,
-                  "ip-address": $ip
-                }
-              ]
-          )
-        else
-          .
-        end
-      )
-    | {
-        command: "config-set",
-        service: ["dhcp4"],
-        arguments: {
-          Dhcp4: .
-        }
-      }
-  ' > "$tmp"
-
-curl -s -X POST "$KEA_API" \
-  -H 'Content-Type: application/json' \
-  --data-binary @"$tmp" | jq
-
-rm -f "$tmp"
+docker compose down
 ```
 
-Verificar se a reserva foi criada:
-
-```bash
-#!/usr/bin/env bash
-curl -s -X POST http://localhost:18000/ \
-  -H 'Content-Type: application/json' \
-  -d '{"command":"config-get", "service":["dhcp4"]}' \
-| jq '.[0].arguments.Dhcp4.subnet4[] | select(.id == 1) | .reservations'
-```
-
-### Remover reserva por IP, se ela existir
-
-Exemplo removendo qualquer reserva associada ao IP `10.88.0.111`:
-
-```bash
-#!/usr/bin/env bash
-KEA_API="http://localhost:18000/"
-IP="10.88.0.111"
-SUBNET_ID="1"
-
-tmp="$(mktemp)"
-
-curl -s -X POST "$KEA_API" \
-  -H 'Content-Type: application/json' \
-  -d '{"command":"config-get", "service":["dhcp4"]}' \
-| jq --arg ip "$IP" --argjson subnet_id "$SUBNET_ID" '
-    .[0].arguments.Dhcp4
-    | .subnet4 |= map(
-        if .id == $subnet_id then
-          .reservations = (
-            (.reservations // [])
-            | map(select(.["ip-address"] != $ip))
-          )
-        else
-          .
-        end
-      )
-    | {
-        command: "config-set",
-        service: ["dhcp4"],
-        arguments: {
-          Dhcp4: .
-        }
-      }
-  ' > "$tmp"
-
-curl -s -X POST "$KEA_API" \
-  -H 'Content-Type: application/json' \
-  --data-binary @"$tmp" | jq
-
-rm -f "$tmp"
-```
-
-Verificar novamente:
-
-```bash
-curl -s -X POST http://localhost:18000/ \
-  -H 'Content-Type: application/json' \
-  -d '{"command":"config-get", "service":["dhcp4"]}' \
-| jq '.[0].arguments.Dhcp4.subnet4[] | select(.id == 1) | .reservations'
-```
-
-### Observação sobre leases já ativos
-
-Remover uma reserva não necessariamente derruba um lease já entregue. Se o cliente já recebeu `10.88.0.111`, ele pode continuar usando o IP até renovar, reiniciar ou liberar manualmente o lease.
-
-> [!NOTE]
-> Se uma reserva foi feita e o cliente está usando o IP, e enquanto o lease estiver ativo for feita uma modificação no IP ou MAC da reserva, ela só será assimilada pelo cliente se ele forçar o DHCP Client (dele) a buscar nova atribuição.
-
-Para forçar renovação em laboratório:
-
-```bash
-docker exec -it client1 dhclient -r eth0
-docker exec -it client1 dhclient -v eth0
-```
-
-Ou recrie/reinicie o cliente:
-
-```bash
-docker compose restart client1
-```
-
-## Alterar o pool DHCP
-
-> [!WARNING]
-> Sempre que modificações de estrutura (rede, pool, etc) form feitas no KEA, **é imperativo rebuildar o container**.
-
-Depois recrie o ambiente:
+Para remover o ambiente de forma limpa:
 
 ```bash
 docker compose down -v
-docker compose up --build
 ```
 
-## Persistência das alterações:
-Como dito desde o início nas reuniões, o papel de persistência é do `BACKEND`. Caso o container do dhcp, que é efêmero, caia/trave/morra, cabe ao backend, que tem as reservas registradas em banco, refazer as liberações do firewall e recriação de reservations no DHCP.
+## Limitações conhecidas
 
-## O que ainda não foi feito:
-1. Restringir o acesso às portas `18000` e `18080` por IP de origem ou colocar reverse proxy/TLS.
-2. Remover `privileged: true` e substituir por capacidades mínimas, como `NET_ADMIN` e `NET_RAW`, após validar no host alvo.
-3. Persistir `/var/lib/kea`, `/etc/kea` e `/etc/gwapi` em volumes nomeados. (Mesmo que não seja obrigação da aplicação manter os estados, não custa ter um backup próprio)
-4. Criar endpoints específicos para alteração de pool DHCP, além das reservations e leases já expostos pela `gwapi`.
-5. Evoluir a autenticação simples atual para um mecanismo próprio de produção, com TLS, rotação de segredo e autorização por perfil.
+- Os containers usam `privileged: true`; uma versão de produção deve reduzir isso para capacidades mínimas, como `NET_ADMIN` e `NET_RAW`, após validação.
+- As portas administrativas são HTTP sem TLS; use apenas em ambiente local ou isolado.
+- O Kea Control Agent fica publicado diretamente no host; em produção ele deveria ficar protegido por proxy, autenticação e controle de origem.
+- O estado de firewall, leases e reservas não é persistido em volumes Docker nomeados por padrão.
+- Alterações estruturais no pool ou na rede exigem recriação do ambiente.
+
+## Solução de problemas
+
+Ver logs do gateway:
+
+```bash
+docker logs gw
+```
+
+Ver logs de um cliente:
+
+```bash
+docker logs client1
+```
+
+Inspecionar regras aplicadas:
+
+```bash
+docker exec gw nft list ruleset
+```
+
+Recriar o ambiente do zero:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+Se os clientes não receberem DHCP, confira se `LAN_DOCKER_IP_RANGE` não sobrepõe o pool DHCP do Kea e se o container `gw` está saudável.
+
+## LICENSE
+
+Este artefato é distribuído sob a licença **BSD 3-Clause**. Consulte o arquivo `LICENSE` para o texto completo.
