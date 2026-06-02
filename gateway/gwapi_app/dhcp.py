@@ -1,3 +1,5 @@
+import logging
+
 from flask import Blueprint, jsonify, request
 
 from .dhcp_service import (
@@ -12,12 +14,25 @@ from .dhcp_service import (
 )
 
 dhcp_bp = Blueprint("dhcp", __name__)
+logger = logging.getLogger("gwapi")
+
+
+def _service_label(value):
+    if isinstance(value, list):
+        return ",".join(value)
+    return value or "-"
 
 
 @dhcp_bp.post("/dhcp/kea")
 def dhcp_kea_proxy():
     body = request.get_json(force=True, silent=True) or {}
     result, status = kea_command(body)
+    logger.info(
+        "dhcp_kea_proxy command=%s service=%s status=%s",
+        body.get("command", "-"),
+        _service_label(body.get("service")),
+        status,
+    )
     return jsonify(result), status
 
 
@@ -32,6 +47,7 @@ def dhcp_config():
     try:
         config = get_kea_dhcp4_config()
     except Exception as exc:  # noqa: BLE001 - API de laboratório
+        logger.exception("dhcp_config_get_failed error=%s", exc)
         return jsonify({"error": str(exc)}), 502
     return jsonify(config)
 
@@ -41,6 +57,7 @@ def dhcp_summary_get():
     try:
         return jsonify(dhcp_summary())
     except Exception as exc:  # noqa: BLE001 - API de laboratório
+        logger.exception("dhcp_summary_failed error=%s", exc)
         return jsonify({"error": str(exc)}), 502
 
 
@@ -74,7 +91,21 @@ def dhcp_reservation_add():
     try:
         apply_reservations()
     except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "dhcp_reservation_add_failed id=%s ip=%s hw=%s error=%s",
+            reservation["id"],
+            reservation["ip_address"],
+            reservation["hw_address"],
+            exc,
+        )
         return jsonify({"error": str(exc)}), 400
+    logger.info(
+        "dhcp_reservation_added id=%s ip=%s hw=%s hostname=%s",
+        reservation["id"],
+        reservation["ip_address"],
+        reservation["hw_address"],
+        reservation.get("hostname", "-"),
+    )
     return jsonify(reservation), 201
 
 
@@ -104,7 +135,21 @@ def dhcp_reservation_update(reservation_id):
             try:
                 apply_reservations()
             except Exception as exc:  # noqa: BLE001
+                logger.exception(
+                    "dhcp_reservation_update_failed id=%s ip=%s hw=%s error=%s",
+                    reservation_id,
+                    reservation["ip_address"],
+                    reservation["hw_address"],
+                    exc,
+                )
                 return jsonify({"error": str(exc)}), 400
+            logger.info(
+                "dhcp_reservation_updated id=%s ip=%s hw=%s hostname=%s",
+                reservation_id,
+                reservation["ip_address"],
+                reservation["hw_address"],
+                reservation.get("hostname", "-"),
+            )
             return jsonify(reservation)
 
     return jsonify({"error": "reservation não encontrada"}), 404
@@ -122,13 +167,18 @@ def dhcp_reservation_delete(reservation_id):
     try:
         apply_reservations()
     except Exception as exc:  # noqa: BLE001
+        logger.exception("dhcp_reservation_delete_failed id=%s error=%s", reservation_id, exc)
         return jsonify({"error": str(exc)}), 400
+    logger.info("dhcp_reservation_deleted id=%s", reservation_id)
     return jsonify(load_reservation_state()["reservations"])
 
 
 @dhcp_bp.post("/dhcp/apply")
 def dhcp_apply():
     try:
-        return jsonify(apply_reservations())
+        result = apply_reservations()
+        logger.info("dhcp_reservations_applied reservations=%s", len(result.get("reservations", [])))
+        return jsonify(result)
     except Exception as exc:  # noqa: BLE001 - API de laboratório
+        logger.exception("dhcp_reservations_apply_failed error=%s", exc)
         return jsonify({"applied": False, "error": str(exc)}), 400

@@ -9,6 +9,8 @@ DHCP_DNS="${DHCP_DNS:-1.1.1.1, 8.8.8.8}"
 DHCP_DOMAIN="${DHCP_DOMAIN:-lab.local}"
 KEA_CA_PORT="${KEA_CA_PORT:-8000}"
 FW_API_PORT="${FW_API_PORT:-8080}"
+KEA_LOG_LEVEL="${KEA_LOG_LEVEL:-INFO}"
+GW_LOG_NFT_RULESET_ON_START="${GW_LOG_NFT_RULESET_ON_START:-1}"
 
 mkdir -p /run/kea /var/lib/kea /var/log/kea /etc/kea /etc/gwapi
 chmod 0750 /run/kea || true
@@ -31,6 +33,8 @@ fi
 export LAN_IF WAN_IF LAN_IP LAN_CIDR FW_API_PORT
 
 echo "[gw] WAN_IF=${WAN_IF}; LAN_IF=${LAN_IF}; LAN_IP=${LAN_IP}; LAN_CIDR=${LAN_CIDR}"
+echo "[gw] DHCP_POOL=${DHCP_POOL_START}-${DHCP_POOL_END}; DHCP_DNS=${DHCP_DNS}; DHCP_DOMAIN=${DHCP_DOMAIN}"
+echo "[gw] FW_API_PORT=${FW_API_PORT}; KEA_CA_PORT=${KEA_CA_PORT}; KEA_LOG_LEVEL=${KEA_LOG_LEVEL}"
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
@@ -70,7 +74,7 @@ cat > /etc/kea/kea-dhcp4.conf <<EOF_KEA4
     "loggers": [
       {
         "name": "kea-dhcp4",
-        "severity": "INFO",
+        "severity": "${KEA_LOG_LEVEL}",
         "output_options": [ { "output": "stdout" } ]
       }
     ]
@@ -92,7 +96,7 @@ cat > /etc/kea/kea-ctrl-agent.conf <<EOF_CA
     "loggers": [
       {
         "name": "kea-ctrl-agent",
-        "severity": "INFO",
+        "severity": "${KEA_LOG_LEVEL}",
         "output_options": [ { "output": "stdout" } ]
       }
     ]
@@ -123,6 +127,10 @@ trap cleanup EXIT INT TERM
 
 # Aplica nftables antes de subir os serviços.
 python3 /opt/gwapi/app.py --apply-once
+if [[ "${GW_LOG_NFT_RULESET_ON_START}" == "1" ]]; then
+  echo "[gw] ruleset nftables inicial:"
+  nft list ruleset || true
+fi
 
 kea-dhcp4 -c /etc/kea/kea-dhcp4.conf &
 sleep 1

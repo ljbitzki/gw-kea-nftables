@@ -23,9 +23,10 @@ Este README está organizado para atender aos requisitos mínimos de avaliação
 
 ```text
 gw-kea-nftables/
-├── docker-compose.yml          # Orquestra o gateway e dois clientes de laboratório
+├── docker-compose.yml          # Orquestra gateway, clientes e observabilidade opcional
 ├── reconfigure.py              # Assistente para alterar rede, pool DHCP e portas publicadas
 ├── .env.example                # Exemplo de configuração do ambiente
+├── TOPOLOGIAS-DE-IMPLANTACAO.md # Cenários físicos com duas NICs ou VLANs
 ├── LICENSE                     # Licença BSD 3-Clause
 ├── gateway/
 │   ├── Dockerfile              # Imagem do gateway
@@ -58,10 +59,14 @@ Os selos considerados são:
 
 ### Arquitetura lógica
 
-O ambiente sobe três containers:
+O ambiente base sobe três containers:
 
 - `gw`: gateway privilegiado com duas interfaces, uma na rede `wan` e outra na rede `lan`.
 - `client1` e `client2`: clientes de laboratório conectados apenas à rede `lan`.
+
+Opcionalmente, o perfil Compose `observability` adiciona o container `dockmon`,
+baseado na imagem `darthnorse/dockmon`, para visualizar logs, eventos e métricas
+dos containers pelo navegador.
 
 ```text
 Host / Internet
@@ -106,6 +111,7 @@ Observação importante: bridges Docker não usam DHCP para endereçar container
 | Domínio entregue por DHCP | `lab.local` |
 | API/interface do firewall no host | `http://localhost:18080` |
 | Kea Control Agent no host | `http://localhost:18000` |
+| DockMon opcional | `https://localhost:8001` |
 | Usuário administrativo de laboratório | `admin` |
 | Senha administrativa de laboratório | `troque-esta-senha` |
 
@@ -115,6 +121,7 @@ Observação importante: bridges Docker não usam DHCP para endereçar container
 |---|---|---|
 | `gwapi` / interface web | `http://localhost:18080` | Gerência de firewall, grupos, DHCP e proxy para Kea |
 | Kea Control Agent | `http://localhost:18000` | API nativa do Kea para comandos `status-get`, `config-get` e `config-set` |
+| DockMon | `https://localhost:8001` | Painel opcional de logs, eventos e métricas dos containers |
 
 ### Ambiente usado no desenvolvimento
 
@@ -179,6 +186,10 @@ Os containers `client1` e `client2` instalam:
 - `curl`
 - `ca-certificates`
 
+O perfil opcional `observability` usa a imagem pública
+`darthnorse/dockmon:latest` por padrão. A tag pode ser alterada por
+`DOCKMON_TAG` no `.env`.
+
 Não há benchmark externo, dataset, credencial privada ou serviço de nuvem necessário para reproduzir os testes documentados.
 
 ## Preocupações com segurança
@@ -190,6 +201,8 @@ Cuidados recomendados:
 - Não exponha as portas `18080` e `18000` para redes não confiáveis.
 - Altere `ADMIN_PASSWORD` e `FLASK_SECRET_KEY` no arquivo `.env` antes de qualquer uso fora de uma máquina local isolada.
 - Considere o Kea Control Agent em `18000` uma interface administrativa sensível.
+- Se habilitar o DockMon, trate `https://localhost:8001` como interface administrativa sensível. O container monta `/var/run/docker.sock`, portanto consegue inspecionar e gerenciar containers Docker do host.
+- Ao primeiro acesso no DockMon, altere a senha padrão indicada pelo próprio projeto.
 - Não execute este Compose em um host de produção.
 - Ao terminar os testes, remova containers, redes e volumes com `docker compose down -v`.
 
@@ -225,6 +238,7 @@ ADMIN_PASSWORD=troque-esta-senha
 FLASK_SECRET_KEY=troque-esta-chave-por-uma-string-longa
 FW_API_HOST_PORT=18080
 KEA_CA_HOST_PORT=18000
+DOCKMON_HOST_PORT=8001
 ```
 
 Opcionalmente, altere a topologia de rede com o assistente:
@@ -241,13 +255,24 @@ Após usar o assistente, confira novamente o arquivo `.env`, em especial as cred
 docker compose up -d --build
 ```
 
+Para iniciar também o painel auxiliar de observabilidade:
+
+```bash
+docker compose --profile observability up -d --build
+```
+
+O DockMon ficará disponível em `https://localhost:8001` por padrão. O navegador
+deve alertar sobre certificado autoassinado, comportamento esperado para esse
+container. No primeiro acesso, use `admin` / `dockmon123` e troque a senha.
+
 ### 4. Conferir se os containers estão em execução
 
 ```bash
 docker compose ps
 ```
 
-O resultado esperado é que `gw`, `client1` e `client2` estejam em execução.
+O resultado esperado é que `gw`, `client1` e `client2` estejam em execução. Se
+o perfil `observability` tiver sido usado, `dockmon` também deve aparecer.
 
 ### 5. Preparar variáveis para os comandos de teste
 
@@ -480,6 +505,25 @@ http://localhost:18080/dhcp
 
 O login usa `ADMIN_USER` e `ADMIN_PASSWORD` do arquivo `.env`.
 
+### Observabilidade com DockMon
+
+Quando o laboratório for iniciado com `--profile observability`, o DockMon fica
+disponível em:
+
+```text
+https://localhost:8001
+```
+
+Ele permite acompanhar logs dos containers `gw`, `client1`, `client2` e
+`dockmon`, além de eventos e métricas do Docker. Os logs mais úteis do gateway
+incluem:
+
+- resumo de interfaces, pool DHCP e portas administrativas no boot;
+- ruleset inicial do `nftables`;
+- logs INFO do Kea DHCPv4 e do Kea Control Agent;
+- chamadas HTTP da `gwapi`, com método, rota, status e duração;
+- eventos administrativos de firewall, grupos e reservas DHCP.
+
 ### Endpoints principais
 
 | Método | Caminho | Descrição |
@@ -583,12 +627,20 @@ Ver logs do gateway:
 
 ```bash
 docker logs gw
+docker compose logs -f gw
 ```
 
 Ver logs de um cliente:
 
 ```bash
 docker logs client1
+```
+
+Iniciar ou consultar o DockMon:
+
+```bash
+docker compose --profile observability up -d dockmon
+docker logs dockmon
 ```
 
 Inspecionar regras aplicadas:

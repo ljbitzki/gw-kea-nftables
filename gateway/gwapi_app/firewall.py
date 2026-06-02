@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import logging
 import re
 import subprocess
 import uuid
@@ -10,6 +11,7 @@ from flask import Blueprint, jsonify, request
 from .config import LAN_CIDR, LAN_IF, STATE_FILE, WAN_IF
 
 firewall_bp = Blueprint("firewall", __name__)
+logger = logging.getLogger("gwapi")
 
 GROUP_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 DEFAULT_GROUPS = {
@@ -302,6 +304,15 @@ def apply_rules():
     nft_file = Path("/tmp/gwapi-ruleset.nft")
     nft_file.write_text(ruleset, encoding="utf-8")
     _run(["nft", "-f", str(nft_file)])
+    logger.info(
+        "firewall_ruleset_applied default_policy=%s rules=%s groups=%s lan_if=%s wan_if=%s lan_cidr=%s",
+        state.get("default_policy"),
+        len(state.get("rules", [])),
+        len(state.get("groups", {})),
+        LAN_IF,
+        WAN_IF,
+        LAN_CIDR,
+    )
     return state
 
 
@@ -329,6 +340,7 @@ def firewall_apply():
         state = apply_rules()
         return jsonify({"applied": True, "state": state})
     except Exception as exc:  # noqa: BLE001 - API de laboratório
+        logger.exception("firewall_apply_failed error=%s", exc)
         return jsonify({"applied": False, "error": str(exc)}), 400
 
 
@@ -344,7 +356,9 @@ def firewall_default():
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception("firewall_default_update_failed policy=%s error=%s", policy, exc)
         return jsonify({"error": str(exc)}), 400
+    logger.info("firewall_default_updated policy=%s", policy)
     return jsonify(load_state())
 
 
@@ -366,7 +380,19 @@ def firewall_rule_add():
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception("firewall_rule_add_failed id=%s error=%s", rule.get("id"), exc)
         return jsonify({"error": str(exc)}), 400
+    logger.info(
+        "firewall_rule_added id=%s action=%s proto=%s src=%s src_group=%s dst=%s dst_group=%s dport=%s",
+        rule.get("id"),
+        rule.get("action"),
+        rule.get("proto"),
+        rule.get("src", "-"),
+        rule.get("src_group", "-"),
+        rule.get("dst", "-"),
+        rule.get("dst_group", "-"),
+        rule.get("dport", "-"),
+    )
     return jsonify(rule), 201
 
 
@@ -399,7 +425,19 @@ def firewall_rule_update(rule_id):
             try:
                 apply_rules()
             except Exception as exc:  # noqa: BLE001
+                logger.exception("firewall_rule_update_failed id=%s error=%s", rule_id, exc)
                 return jsonify({"error": str(exc)}), 400
+            logger.info(
+                "firewall_rule_updated id=%s action=%s proto=%s src=%s src_group=%s dst=%s dst_group=%s dport=%s",
+                rule.get("id"),
+                rule.get("action"),
+                rule.get("proto"),
+                rule.get("src", "-"),
+                rule.get("src_group", "-"),
+                rule.get("dst", "-"),
+                rule.get("dst_group", "-"),
+                rule.get("dport", "-"),
+            )
             return jsonify(rule)
 
     return jsonify({"error": "regra não encontrada"}), 404
@@ -419,7 +457,9 @@ def firewall_rule_delete(rule_id):
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception("firewall_rule_delete_failed id=%s error=%s", rule_id, exc)
         return jsonify({"error": str(exc)}), 400
+    logger.info("firewall_rule_deleted id=%s", rule_id)
     return jsonify(load_state())
 
 
@@ -459,7 +499,9 @@ def firewall_group_add():
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception("firewall_group_add_failed id=%s error=%s", group_id, exc)
         return jsonify({"error": str(exc)}), 400
+    logger.info("firewall_group_added id=%s members=%s", group_id, len(group.get("members", [])))
     return jsonify({group_id: load_state()["groups"][group_id]}), 201
 
 
@@ -487,7 +529,13 @@ def firewall_group_update(group_id):
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception("firewall_group_update_failed id=%s error=%s", group_id, exc)
         return jsonify({"error": str(exc)}), 400
+    logger.info(
+        "firewall_group_updated id=%s members=%s",
+        group_id,
+        len(state["groups"][group_id].get("members", [])),
+    )
     return jsonify(load_state()["groups"][group_id])
 
 
@@ -513,7 +561,9 @@ def firewall_group_delete(group_id):
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception("firewall_group_delete_failed id=%s error=%s", group_id, exc)
         return jsonify({"error": str(exc)}), 400
+    logger.info("firewall_group_deleted id=%s", group_id)
     return jsonify(load_state()["groups"])
 
 
@@ -536,7 +586,19 @@ def firewall_group_member_add(group_id):
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "firewall_group_member_add_failed group=%s member=%s error=%s",
+            group_id,
+            member,
+            exc,
+        )
         return jsonify({"error": str(exc)}), 400
+    logger.info(
+        "firewall_group_member_added group=%s member=%s members=%s",
+        group_id,
+        member,
+        len(group["members"]),
+    )
     return jsonify(load_state()["groups"][group_id])
 
 
@@ -562,5 +624,17 @@ def firewall_group_member_delete(group_id):
     try:
         apply_rules()
     except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "firewall_group_member_delete_failed group=%s member=%s error=%s",
+            group_id,
+            member,
+            exc,
+        )
         return jsonify({"error": str(exc)}), 400
+    logger.info(
+        "firewall_group_member_deleted group=%s member=%s members=%s",
+        group_id,
+        member,
+        len(group["members"]),
+    )
     return jsonify(load_state()["groups"][group_id])

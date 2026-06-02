@@ -1,6 +1,7 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
 RUN  apt update && \
      apt install --no-install-recommends ca-certificates curl iproute2 iputils-ping jq kea net-tools nftables procps python3 python3-flask -y && \

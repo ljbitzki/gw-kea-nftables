@@ -31,6 +31,7 @@ DEFAULTS: dict[str, str] = {
     "KEA_CA_PORT": "8000",
     "FW_API_HOST_PORT": "18080",
     "KEA_CA_HOST_PORT": "18000",
+    "DOCKMON_HOST_PORT": "8001",
 }
 
 LABELS: dict[str, str] = {
@@ -46,6 +47,7 @@ LABELS: dict[str, str] = {
     "KEA_CA_PORT": "Porta interna do Kea Control Agent no gw",
     "FW_API_HOST_PORT": "Porta publicada no host para a API do firewall",
     "KEA_CA_HOST_PORT": "Porta publicada no host para o Kea Control Agent",
+    "DOCKMON_HOST_PORT": "Porta publicada no host para o DockMon",
 }
 
 
@@ -169,13 +171,26 @@ def validate_all(cfg: dict[str, str]) -> None:
     parse_dns(cfg["DHCP_DNS"])
     parse_domain(cfg["DHCP_DOMAIN"])
 
-    for key in ["FW_API_PORT", "KEA_CA_PORT", "FW_API_HOST_PORT", "KEA_CA_HOST_PORT"]:
+    for key in [
+        "FW_API_PORT",
+        "KEA_CA_PORT",
+        "FW_API_HOST_PORT",
+        "KEA_CA_HOST_PORT",
+        "DOCKMON_HOST_PORT",
+    ]:
         parse_port(cfg[key])
 
     if cfg["FW_API_PORT"] == cfg["KEA_CA_PORT"]:
         raise ValueError("FW_API_PORT e KEA_CA_PORT não podem ser iguais")
-    if cfg["FW_API_HOST_PORT"] == cfg["KEA_CA_HOST_PORT"]:
-        raise ValueError("FW_API_HOST_PORT e KEA_CA_HOST_PORT não podem ser iguais")
+    published_ports = {
+        "FW_API_HOST_PORT": cfg["FW_API_HOST_PORT"],
+        "KEA_CA_HOST_PORT": cfg["KEA_CA_HOST_PORT"],
+        "DOCKMON_HOST_PORT": cfg["DOCKMON_HOST_PORT"],
+    }
+    if len(set(published_ports.values())) != len(published_ports):
+        raise ValueError(
+            "FW_API_HOST_PORT, KEA_CA_HOST_PORT e DOCKMON_HOST_PORT não podem repetir portas"
+        )
 
 
 def ask_value(
@@ -243,6 +258,7 @@ def main() -> int:
         ask_value(cfg, "DHCP_DOMAIN", parse_domain)
         ask_value(cfg, "FW_API_HOST_PORT", parse_port)
         ask_value(cfg, "KEA_CA_HOST_PORT", parse_port)
+        ask_value(cfg, "DOCKMON_HOST_PORT", parse_port)
 
         # Normalmente não é necessário alterar as portas internas; ainda assim deixamos disponível.
         if yes_no("Deseja alterar também as portas internas dos serviços no container?", default=False):

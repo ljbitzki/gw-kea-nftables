@@ -1,9 +1,16 @@
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "${DOCKER_LOG_MAX_SIZE:-10m}"
+    max-file: "${DOCKER_LOG_MAX_FILES:-5}"
+
 services:
   gw:
     build: ./gateway
     container_name: gw
     hostname: gw
     privileged: true
+    logging: *default-logging
     sysctls:
       net.ipv4.ip_forward: "1"
     environment:
@@ -20,6 +27,9 @@ services:
       FLASK_SECRET_KEY: "${FLASK_SECRET_KEY:-gwapi-dev-secret-change-me}"
       DHCP_RESERVATIONS_FILE: "${DHCP_RESERVATIONS_FILE:-/etc/gwapi/dhcp_reservations.json}"
       KEA_LEASES_FILE: "${KEA_LEASES_FILE:-/var/lib/kea/kea-leases4.csv}"
+      GWAPI_LOG_LEVEL: "${GWAPI_LOG_LEVEL:-INFO}"
+      KEA_LOG_LEVEL: "${KEA_LOG_LEVEL:-INFO}"
+      GW_LOG_NFT_RULESET_ON_START: "${GW_LOG_NFT_RULESET_ON_START:-1}"
     ports:
       - "${FW_API_HOST_PORT:-18080}:${FW_API_PORT:-8080}"   # API do firewall
       - "${KEA_CA_HOST_PORT:-18000}:${KEA_CA_PORT:-8000}"   # Kea Control Agent
@@ -33,6 +43,7 @@ services:
     container_name: client1
     hostname: client1
     privileged: true
+    logging: *default-logging
     depends_on:
       - gw
     networks:
@@ -43,10 +54,32 @@ services:
     container_name: client2
     hostname: client2
     privileged: true
+    logging: *default-logging
     depends_on:
       - gw
     networks:
       lan: {}
+
+  dockmon:
+    image: "darthnorse/dockmon:${DOCKMON_TAG:-latest}"
+    container_name: dockmon
+    hostname: dockmon
+    restart: unless-stopped
+    profiles:
+      - observability
+    logging: *default-logging
+    ports:
+      - "${DOCKMON_HOST_PORT:-8001}:443"   # DockMon: dashboard HTTPS para logs e métricas dos containers
+    environment:
+      TZ: "${TZ:-America/Sao_Paulo}"
+    volumes:
+      - dockmon_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:443/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 # WAN comum: Docker atribui IP dinamicamente via IPAM da própria bridge e permite saída para a internet pelo host.
 networks:
@@ -62,3 +95,6 @@ networks:
         - subnet: "${LAN_CIDR:-10.88.0.0/24}"
           gateway: "${LAN_DOCKER_GATEWAY:-10.88.0.254}"
           ip_range: "${LAN_DOCKER_IP_RANGE:-10.88.0.240/28}"
+
+volumes:
+  dockmon_data:

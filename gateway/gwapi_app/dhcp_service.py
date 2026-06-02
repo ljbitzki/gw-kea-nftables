@@ -1,6 +1,7 @@
 import csv
 import ipaddress
 import json
+import logging
 import re
 import time
 import urllib.error
@@ -11,6 +12,13 @@ from datetime import datetime, timezone
 from .config import DHCP_RESERVATIONS_FILE, KEA_CA_URL, KEA_LEASES_FILE
 
 MAC_RE = re.compile(r"^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$")
+logger = logging.getLogger("gwapi")
+
+
+def _service_label(value):
+    if isinstance(value, list):
+        return ",".join(value)
+    return value or "-"
 
 
 def kea_command(payload):
@@ -33,6 +41,12 @@ def kea_command(payload):
             body = {"error": raw}
         return body, exc.code
     except Exception as exc:  # noqa: BLE001 - API de laboratório
+        logger.warning(
+            "kea_command_failed command=%s service=%s error=%s",
+            payload.get("command", "-"),
+            _service_label(payload.get("service")),
+            exc,
+        )
         return {"error": str(exc)}, 502
 
 
@@ -175,6 +189,11 @@ def _apply_reservations_once():
         subnet["reservations"] = preserved + [reservation_to_kea(item) for item in managed]
 
     result = set_kea_dhcp4_config(config)
+    logger.info(
+        "dhcp_reservations_sent_to_kea reservations=%s subnets=%s",
+        len(reservations),
+        len(config.get("subnet4", [])),
+    )
     return {
         "applied": True,
         "result": result,

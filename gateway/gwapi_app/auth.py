@@ -1,7 +1,7 @@
 import hmac
 from urllib.parse import urlparse
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
 
 from .config import ADMIN_PASSWORD, ADMIN_USER
 
@@ -42,6 +42,12 @@ def require_auth_for_request():
 
     wants_json = request.path == "/health" or request.path.startswith(("/firewall", "/dhcp"))
     if wants_json:
+        current_app.logger.warning(
+            "auth_required path=%s method=%s remote_addr=%s",
+            request.path,
+            request.method,
+            request.remote_addr or "-",
+        )
         return jsonify({"error": "autenticação requerida"}), 401
 
     return redirect(url_for("auth.login", next=request.full_path if request.query_string else request.path))
@@ -64,12 +70,27 @@ def login_post():
         session.clear()
         session["authenticated"] = True
         session["username"] = username
+        current_app.logger.info(
+            "login_success username=%s remote_addr=%s",
+            username,
+            request.remote_addr or "-",
+        )
         return redirect(next_url)
 
+    current_app.logger.warning(
+        "login_failed username=%s remote_addr=%s",
+        username or "-",
+        request.remote_addr or "-",
+    )
     return render_template("login.html", next_url=next_url, error="Usuário ou senha inválidos"), 401
 
 
 @auth_bp.post("/logout")
 def logout():
+    current_app.logger.info(
+        "logout username=%s remote_addr=%s",
+        session.get("username") or "-",
+        request.remote_addr or "-",
+    )
     session.clear()
     return redirect(url_for("auth.login"))
