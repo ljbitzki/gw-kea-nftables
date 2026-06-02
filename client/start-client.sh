@@ -9,6 +9,7 @@ ip addr flush dev "${IFACE}" || true
 ip route flush dev "${IFACE}" || true
 ip link set "${IFACE}" up
 
+echo "[client] interface ${IFACE}; mac=$(cat "/sys/class/net/${IFACE}/address")"
 echo "[client] solicitando DHCP em ${IFACE}..."
 dhclient -4 -v "${IFACE}"
 

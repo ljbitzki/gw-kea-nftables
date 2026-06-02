@@ -106,6 +106,8 @@ Observação importante: bridges Docker não usam DHCP para endereçar container
 | IP do gateway na LAN | `10.88.0.1` |
 | Gateway interno da bridge Docker | `10.88.0.254` |
 | Faixa temporária do IPAM Docker | `10.88.0.240/28` |
+| MAC fixo do `client1` | `02:42:0a:58:01:01` |
+| MAC fixo do `client2` | `02:42:0a:58:01:02` |
 | Pool DHCP do Kea | `10.88.0.100 - 10.88.0.200` |
 | DNS entregue por DHCP | `1.1.1.1, 9.9.9.9` |
 | Domínio entregue por DHCP | `lab.local` |
@@ -239,6 +241,8 @@ FLASK_SECRET_KEY=troque-esta-chave-por-uma-string-longa
 FW_API_HOST_PORT=18080
 KEA_CA_HOST_PORT=18000
 DOCKMON_HOST_PORT=8001
+CLIENT1_MAC=02:42:0a:58:01:01
+CLIENT2_MAC=02:42:0a:58:01:02
 ```
 
 Opcionalmente, altere a topologia de rede com o assistente:
@@ -248,6 +252,11 @@ python3 reconfigure.py
 ```
 
 Após usar o assistente, confira novamente o arquivo `.env`, em especial as credenciais administrativas e a chave Flask.
+
+Os MAC addresses dos clientes também podem ser definidos no `.env`. Isso torna
+a demonstração de reservas DHCP mais previsível. Se alterar `CLIENT1_MAC` ou
+`CLIENT2_MAC` depois de os containers já existirem, recrie os clientes com
+`docker compose up -d --force-recreate client1 client2`.
 
 ### 3. Construir e iniciar o laboratório
 
@@ -283,8 +292,12 @@ ADMIN_USER="$(sed -n 's/^ADMIN_USER=//p' .env)"
 ADMIN_PASSWORD="$(sed -n 's/^ADMIN_PASSWORD=//p' .env)"
 FW_API_HOST_PORT="$(sed -n 's/^FW_API_HOST_PORT=//p' .env)"
 KEA_CA_HOST_PORT="$(sed -n 's/^KEA_CA_HOST_PORT=//p' .env)"
+CLIENT1_MAC="$(sed -n 's/^CLIENT1_MAC=//p' .env)"
+CLIENT2_MAC="$(sed -n 's/^CLIENT2_MAC=//p' .env)"
 FW_API_HOST_PORT="${FW_API_HOST_PORT:-18080}"
 KEA_CA_HOST_PORT="${KEA_CA_HOST_PORT:-18000}"
+CLIENT1_MAC="${CLIENT1_MAC:-02:42:0a:58:01:01}"
+CLIENT2_MAC="${CLIENT2_MAC:-02:42:0a:58:01:02}"
 FW_AUTH="${ADMIN_USER:-admin}:${ADMIN_PASSWORD:-admin}"
 ```
 
@@ -427,10 +440,11 @@ docker exec client1 ping -c 3 1.1.1.1
 
 **Comandos.**
 
-Ler o MAC atual de `client1`:
+Confirmar o MAC de `client1` definido no `.env`:
 
 ```bash
-CLIENT1_MAC="$(docker exec client1 cat /sys/class/net/eth0/address)"
+echo "${CLIENT1_MAC}"
+docker exec client1 cat /sys/class/net/eth0/address
 ```
 
 Criar uma reserva para `10.88.0.111`:

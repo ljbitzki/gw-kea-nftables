@@ -47,7 +47,8 @@ services:
     depends_on:
       - gw
     networks:
-      lan: {}
+      lan:
+        mac_address: "${CLIENT1_MAC:-02:42:0a:58:01:01}"
 
   client2:
     build: ./client
@@ -58,7 +59,8 @@ services:
     depends_on:
       - gw
     networks:
-      lan: {}
+      lan:
+        mac_address: "${CLIENT2_MAC:-02:42:0a:58:01:02}"
 
   dockmon:
     image: "darthnorse/dockmon:${DOCKMON_TAG:-latest}"

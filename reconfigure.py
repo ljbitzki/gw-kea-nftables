@@ -23,6 +23,8 @@ DEFAULTS: dict[str, str] = {
     "LAN_CIDR": "10.88.0.0/24",
     "LAN_DOCKER_GATEWAY": "10.88.0.254",
     "LAN_DOCKER_IP_RANGE": "10.88.0.240/28",
+    "CLIENT1_MAC": "02:42:0a:58:01:01",
+    "CLIENT2_MAC": "02:42:0a:58:01:02",
     "DHCP_POOL_START": "10.88.0.100",
     "DHCP_POOL_END": "10.88.0.200",
     "DHCP_DNS": "1.1.1.1, 8.8.8.8",
@@ -39,6 +41,8 @@ LABELS: dict[str, str] = {
     "LAN_CIDR": "Rede/CIDR da LAN",
     "LAN_DOCKER_GATEWAY": "Gateway interno da bridge Docker",
     "LAN_DOCKER_IP_RANGE": "Faixa IPAM Docker temporária",
+    "CLIENT1_MAC": "MAC address fixo do client1",
+    "CLIENT2_MAC": "MAC address fixo do client2",
     "DHCP_POOL_START": "Início do pool DHCP Kea",
     "DHCP_POOL_END": "Fim do pool DHCP Kea",
     "DHCP_DNS": "Servidores DNS entregues por DHCP",
@@ -134,6 +138,17 @@ def parse_domain(value: str) -> str:
     return value
 
 
+def parse_mac(value: str) -> str:
+    normalized = value.strip().lower()
+    pattern = r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$"
+    if not re.match(pattern, normalized):
+        raise ValueError("MAC deve estar no formato 02:42:0a:58:01:01")
+    first_octet = int(normalized.split(":", 1)[0], 16)
+    if first_octet & 1:
+        raise ValueError("MAC multicast não é aceito; use endereço unicast")
+    return normalized
+
+
 def validate_all(cfg: dict[str, str]) -> None:
     lan = parse_net(cfg["LAN_CIDR"])
     lan_ip = parse_ipv4(cfg["LAN_IP"])
@@ -170,6 +185,10 @@ def validate_all(cfg: dict[str, str]) -> None:
 
     parse_dns(cfg["DHCP_DNS"])
     parse_domain(cfg["DHCP_DOMAIN"])
+    client1_mac = parse_mac(cfg["CLIENT1_MAC"])
+    client2_mac = parse_mac(cfg["CLIENT2_MAC"])
+    if client1_mac == client2_mac:
+        raise ValueError("CLIENT1_MAC e CLIENT2_MAC não podem ser iguais")
 
     for key in [
         "FW_API_PORT",
@@ -224,6 +243,10 @@ def normalize_dns(value: str) -> str:
     return ", ".join(str(ip) for ip in parse_dns(value))
 
 
+def normalize_mac(value: str) -> str:
+    return parse_mac(value)
+
+
 def show_config(cfg: dict[str, str]) -> None:
     print("\nConfiguração atual considerada pelo script:\n")
     for key in DEFAULTS:
@@ -252,6 +275,8 @@ def main() -> int:
         ask_value(cfg, "LAN_IP", parse_ipv4, normalize_ip)
         ask_value(cfg, "LAN_DOCKER_GATEWAY", parse_ipv4, normalize_ip)
         ask_value(cfg, "LAN_DOCKER_IP_RANGE", parse_net, normalize_net)
+        ask_value(cfg, "CLIENT1_MAC", parse_mac, normalize_mac)
+        ask_value(cfg, "CLIENT2_MAC", parse_mac, normalize_mac)
         ask_value(cfg, "DHCP_POOL_START", parse_ipv4, normalize_ip)
         ask_value(cfg, "DHCP_POOL_END", parse_ipv4, normalize_ip)
         ask_value(cfg, "DHCP_DNS", parse_dns, normalize_dns)
