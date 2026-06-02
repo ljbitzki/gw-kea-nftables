@@ -4,7 +4,7 @@ Este repositório contém o artefato associado ao artigo "Protótipo LEAS: gatew
 
 O objetivo do artefato é demonstrar que uma infraestrutura de laboratório pode provisionar clientes em uma LAN isolada por DHCP, encaminhar o tráfego desses clientes por um gateway controlado e aplicar políticas de firewall e reservas DHCP dinamicamente por uma API administrativa. O ambiente é autocontido: não requer nuvem, chaves privadas, equipamentos físicos externos ou bases de dados de terceiros.
 
-A demonstração base é totalmente local, onde a rede, o container gateway e os contêineres clientes são elementos na mesma máquina. A aplicação do artefato em cenários de uso realístico pode ser acessado em [TOPOLOGIAS-DE-IMPLANTACAO](TOPOLOGIAS-DE-IMPLANTACAO.md).
+A demonstração base é totalmente local, onde a rede, o container gateway e os contêineres clientes são elementos na mesma máquina. A aplicação do artefato em cenários de uso realístico pode ser acessada em [TOPOLOGIAS-DE-IMPLANTACAO.md](TOPOLOGIAS-DE-IMPLANTACAO.md).
 
 ## Estrutura do README.md
 
@@ -17,7 +17,7 @@ Este README está organizado para atender aos requisitos mínimos de avaliação
 - **Instalação**: mostra como obter, configurar e iniciar o ambiente.
 - **Teste mínimo**: fornece uma execução curta para validar a instalação.
 - **Experimentos**: descreve como reproduzir as principais reivindicações do artigo.
-- **LICENSE**: informa a licença do artefato.
+- **[LICENSE](LICENSE)**: informa a licença do artefato.
 
 ### Estrutura do repositório
 
@@ -53,7 +53,7 @@ Os selos considerados são:
 - **Artefatos Disponíveis (SeloD)**: o código-fonte, scripts e configuração do experimento estão disponíveis neste repositório.
 - **Artefatos Funcionais (SeloF)**: o artefato pode ser executado localmente com Docker Compose e permite observar DHCP, NAT, firewall e API administrativa.
 - **Artefatos Sustentáveis (SeloS)**: o código está modularizado em componentes de gateway, API, firewall, DHCP e clientes de teste.
-- **Experimentos Reprodutíveis (SeloR)**: as principais reivindicações podem ser reproduzidas por comandos documentados neste README.
+- **Experimentos Reprodutíveis (SeloR)**: as principais reivindicações podem ser reproduzidas por comandos documentados neste [README.md](README.md).
 
 ## Informações básicas
 
@@ -109,9 +109,9 @@ Observação importante: bridges Docker não usam DHCP para endereçar container
 | Pool DHCP do Kea | `10.88.0.100 - 10.88.0.200` |
 | DNS entregue por DHCP | `1.1.1.1, 9.9.9.9` |
 | Domínio entregue por DHCP | `lab.local` |
-| API/interface do firewall no host | `http://localhost:18080` |
-| Kea Control Agent no host | `http://localhost:18000` |
-| DockMon opcional | `https://localhost:8001` |
+| API/interface do firewall no host | [http://localhost:18080](http://localhost:18080) |
+| Kea Control Agent no host | [http://localhost:18000](http://localhost:18000) |
+| DockMon opcional | [https://localhost:8001](https://localhost:8001) |
 | Usuário administrativo de laboratório | `admin` |
 | Senha administrativa de laboratório | `troque-esta-senha` |
 
@@ -119,9 +119,9 @@ Observação importante: bridges Docker não usam DHCP para endereçar container
 
 | Serviço | URL padrão | Uso |
 |---|---|---|
-| `gwapi` / interface web | `http://localhost:18080` | Gerência de firewall, grupos, DHCP e proxy para Kea |
-| Kea Control Agent | `http://localhost:18000` | API nativa do Kea para comandos `status-get`, `config-get` e `config-set` |
-| DockMon | `https://localhost:8001` | Painel opcional de logs, eventos e métricas dos containers |
+| `gwapi` / interface web | [http://localhost:18080](http://localhost:18080) | Gerência de firewall, grupos, DHCP e proxy para Kea |
+| Kea Control Agent | [http://localhost:18000](http://localhost:18000) | API nativa do Kea para comandos `status-get`, `config-get` e `config-set` |
+| DockMon | [https://localhost:8001](https://localhost:8001) | Painel opcional de logs, eventos e métricas dos containers |
 
 ### Ambiente usado no desenvolvimento
 
@@ -201,7 +201,7 @@ Cuidados recomendados:
 - Não exponha as portas `18080` e `18000` para redes não confiáveis.
 - Altere `ADMIN_PASSWORD` e `FLASK_SECRET_KEY` no arquivo `.env` antes de qualquer uso fora de uma máquina local isolada.
 - Considere o Kea Control Agent em `18000` uma interface administrativa sensível.
-- Se habilitar o DockMon, trate `https://localhost:8001` como interface administrativa sensível. O container monta `/var/run/docker.sock`, portanto consegue inspecionar e gerenciar containers Docker do host.
+- Se habilitar o DockMon, trate [https://localhost:8001](https://localhost:8001) como interface administrativa sensível. O container monta `/var/run/docker.sock`, portanto consegue inspecionar e gerenciar containers Docker do host.
 - Ao primeiro acesso no DockMon, altere a senha padrão indicada pelo próprio projeto.
 - Não execute este Compose em um host de produção.
 - Ao terminar os testes, remova containers, redes e volumes com `docker compose down -v`.
@@ -261,7 +261,7 @@ Para iniciar também o painel auxiliar de observabilidade:
 docker compose --profile observability up -d --build
 ```
 
-O DockMon ficará disponível em `https://localhost:8001` por padrão. O navegador
+O DockMon ficará disponível em [https://localhost:8001](https://localhost:8001) por padrão. O navegador
 deve alertar sobre certificado autoassinado, comportamento esperado para esse
 container. No primeiro acesso, use `admin` / `dockmon123` e troque a senha.
 
@@ -491,28 +491,16 @@ curl -s -u "$FW_AUTH" "http://localhost:${FW_API_HOST_PORT}/health" | jq
 
 ### Interface web
 
-A interface administrativa principal fica em:
+A interface administrativa principal fica em [http://localhost:18080/](http://localhost:18080/).
 
-```text
-http://localhost:18080/
-```
-
-A tela de DHCP fica em:
-
-```text
-http://localhost:18080/dhcp
-```
+A tela de DHCP fica em [http://localhost:18080/dhcp](http://localhost:18080/dhcp).
 
 O login usa `ADMIN_USER` e `ADMIN_PASSWORD` do arquivo `.env`.
 
 ### Observabilidade com DockMon
 
 Quando o laboratório for iniciado com `--profile observability`, o DockMon fica
-disponível em:
-
-```text
-https://localhost:8001
-```
+disponível em [https://localhost:8001](https://localhost:8001).
 
 Ele permite acompanhar logs dos containers `gw`, `client1`, `client2` e
 `dockmon`, além de eventos e métricas do Docker. Os logs mais úteis do gateway
@@ -660,4 +648,4 @@ Se os clientes não receberem DHCP, confira se `LAN_DOCKER_IP_RANGE` não sobrep
 
 ## LICENSE
 
-Este artefato é distribuído sob a licença **BSD 3-Clause**. Consulte o arquivo `LICENSE` para o texto completo.
+Este artefato é distribuído sob a licença **BSD 3-Clause**. Consulte o arquivo [LICENSE](LICENSE) para o texto completo.

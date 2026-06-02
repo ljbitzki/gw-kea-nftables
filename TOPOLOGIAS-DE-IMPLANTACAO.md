@@ -349,7 +349,7 @@ define LAN_IF = "lan20"
 ```
 
 O protótipo deste repositório segue esta mesma lógica ao construir o ruleset em
-`gateway/gwapi_app/firewall.py`: identifica `LAN_IF`, identifica `WAN_IF`,
+[gateway/gwapi_app/firewall.py](gateway/gwapi_app/firewall.py): identifica `LAN_IF`, identifica `WAN_IF`,
 permite tráfego LAN -> WAN conforme regras e aplica masquerade para `LAN_CIDR`.
 
 Neste exemplo, IPv6 é bloqueado explicitamente no encaminhamento. Se a intenção
