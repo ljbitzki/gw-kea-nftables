@@ -4,6 +4,8 @@ Este repositório contém o artefato associado ao artigo "Protótipo LEAS: gatew
 
 O objetivo do artefato é demonstrar que uma infraestrutura de laboratório pode provisionar clientes em uma LAN isolada por DHCP, encaminhar o tráfego desses clientes por um gateway controlado e aplicar políticas de firewall e reservas DHCP dinamicamente por uma API administrativa. O ambiente é autocontido: não requer nuvem, chaves privadas, equipamentos físicos externos ou bases de dados de terceiros.
 
+A demonstração base é totalmente local, onde a rede, o container gateway e os contêineres clientes são elementos na mesma máquina. A aplicação do artefato em cenários de uso realístico pode ser acessado em [TOPOLOGIAS-DE-IMPLANTACAO](TOPOLOGIAS-DE-IMPLANTACAO.md).
+
 ## Estrutura do README.md
 
 Este README está organizado para atender aos requisitos mínimos de avaliação de artefatos do SBRC 2026:
