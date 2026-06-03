@@ -10,7 +10,7 @@ Os objetivos do artefato são:
 > O ambiente é autocontido: não requer nuvem, chaves privadas, equipamentos físicos externos ou bases de dados de terceiros.
 
 >[!IMPORTANT]
-> A demonstração base é totalmente local, onde a rede, o container gateway e os contêineres clientes são elementos na mesma máquina. A aplicação do artefato em cenários de uso realístico pode ser acessada em [TOPOLOGIAS-DE-IMPLANTACAO.md](TOPOLOGIAS-DE-IMPLANTACAO.md).
+> A demonstração base é totalmente local, onde a rede, o container gateway e os contêineres clientes são elementos na mesma máquina. A documentação para a aplicação do artefato em cenários de uso realístico pode ser acessada em [TOPOLOGIAS-DE-IMPLANTACAO.md](TOPOLOGIAS-DE-IMPLANTACAO.md).
 
 ## Estrutura do README.md
 
