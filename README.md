@@ -2,9 +2,15 @@
 
 Este repositório contém o artefato associado ao artigo "Protótipo LEAS: gateway de rede em container com Kea DHCP e firewall nftables". O artefato implementa um laboratório reprodutível em Docker Compose no qual um container `gw` atua como gateway entre uma rede WAN e uma rede LAN isolada, oferecendo DHCPv4 com Kea, NAT, filtragem com `nftables` e uma API/interface web para administrar regras de firewall e reservas DHCP.
 
-O objetivo do artefato é demonstrar que uma infraestrutura de laboratório pode provisionar clientes em uma LAN isolada por DHCP, encaminhar o tráfego desses clientes por um gateway controlado e aplicar políticas de firewall e reservas DHCP dinamicamente por uma API administrativa. O ambiente é autocontido: não requer nuvem, chaves privadas, equipamentos físicos externos ou bases de dados de terceiros.
+Os objetivos do artefato são:
+1. Demonstrar que uma infraestrutura de laboratório pode provisionar clientes em uma LAN isolada por DHCP, encaminhar o tráfego desses clientes por um gateway controlado e aplicar políticas de firewall e reservas DHCP dinamicamente por uma API administrativa.
+2. Apresentar uma alternativa viável de uma plataforma especializada de gateway + firewall + dhcp (como em um pfSense, por exemplo), implementando apenas conteineres e serviços leves plenamente estabelecidos e largamente utilizados
 
-A demonstração base é totalmente local, onde a rede, o container gateway e os contêineres clientes são elementos na mesma máquina. A aplicação do artefato em cenários de uso realístico pode ser acessada em [TOPOLOGIAS-DE-IMPLANTACAO.md](TOPOLOGIAS-DE-IMPLANTACAO.md).
+>[!TIP]
+> O ambiente é autocontido: não requer nuvem, chaves privadas, equipamentos físicos externos ou bases de dados de terceiros.
+
+>[!IMPORTANT]
+> A demonstração base é totalmente local, onde a rede, o container gateway e os contêineres clientes são elementos na mesma máquina. A aplicação do artefato em cenários de uso realístico pode ser acessada em [TOPOLOGIAS-DE-IMPLANTACAO.md](TOPOLOGIAS-DE-IMPLANTACAO.md).
 
 ## Estrutura do README.md
 
